@@ -8,7 +8,7 @@ module.exports = {
         filename: 'bundle.js'
     },
     resolve: {
-        extensions: ['.js', '.jsx']
+        extensions: ['.js', '.jsx', '.css']
     },
     module: {
         loaders: [
@@ -17,9 +17,14 @@ module.exports = {
                 exclude: /(node_modules|bower_components)/,
                 loader: 'babel-loader',
                 query: {
-                    presets: ['react', 'es2015', 'stage-3']
+                    presets: ['react', 'es2015', 'stage-3'],
+		    plugins: ['transform-object-rest-spread', 'transform-class-properties']
                 }
-            }
+            },
+						{
+test: /\.css$/,
+        use: [ 'style-loader', 'css-loader' ]
+            },
         ]
     },
     plugins: [new HtmlWebpackPlugin({

@@ -17,7 +17,6 @@ import (
 
 type User struct {
 	UserID                string
-	UserName              string
 	UserType              string
 	Password              []byte
 	FirstName             string
@@ -124,7 +123,6 @@ func registerUser(resp http.ResponseWriter, req *http.Request) *appError {
 	type ReqBody struct {
 		FirstName string
 		LastName  string
-		Username  string
 		Password  string
 	}
 	var reqBody ReqBody
@@ -133,7 +131,6 @@ func registerUser(resp http.ResponseWriter, req *http.Request) *appError {
 
 	user.FirstName = reqBody.FirstName
 	user.LastName = reqBody.LastName
-	user.UserName = reqBody.Username
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(reqBody.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -159,13 +156,11 @@ func registerUser(resp http.ResponseWriter, req *http.Request) *appError {
 func authenticateUser(resp http.ResponseWriter, req *http.Request) {
 
 	type ReqBody struct {
-		Username string
 		Password string
 	}
 
 	var reqBody ReqBody
 	err := readReqBody(req, &reqBody)
-	fmt.Println(reqBody.Username)
 	fmt.Println(reqBody.Password)
 	/*
 		now := time.Now()
