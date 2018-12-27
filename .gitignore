@@ -1,7 +1,6 @@
 # Don't track content of these folders
 web/node_modules/
 web/npm-debug.log
-src/
 pkg/
 database/
 log/
