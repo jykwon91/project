@@ -1,4 +1,8 @@
 # Don't track content of these folders
+etc/
+signature.jpg
+businessEmail
+businessEmailPass
 web/node_modules/
 web/npm-debug.log
 pkg/
@@ -6,3 +10,4 @@ database/
 log/
 nohup.out
 server
+*.swp

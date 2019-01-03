@@ -15,6 +15,7 @@ class RegisterPage extends React.Component {
                 lastName: '',
                 password: '',
 								email: '',
+								phoneNumber: '',
 								rentalAddress: '',
 								billingStreet: '',
 								billingCity: '',
@@ -25,9 +26,14 @@ class RegisterPage extends React.Component {
 						rentalAddressList: [{value:'6738 Peerless St, Houston, TX, 77021', id:1}, {value:'Hello World', id:2}],
 						showRentalAddressList: false,
 						selectedRentalAddress: {value:'Select Home/Apt Address', id:99999},
-						stateList: this.props.stateList || [{value:'TX', id:1}, {value:'NO', id:2}],
+						stateList: this.props.stateList || [
+							{value:'TX', id:1}, 
+							{value:'NO', id:2}
+						],
 						showStateList: false,
 						selectedState: {value:'Select State', id:99999},
+						fields: {},
+						errors: {}
         };
 
         this.handleChange = this.handleChange.bind(this);
@@ -73,8 +79,6 @@ class RegisterPage extends React.Component {
 		}
 
 		handleClick = (e) => {
-			console.log(e.target);
-			//if (this.node.contains(e.target) || this.tempnode.contains(e.target)) {
 			if (this.node.contains(e.target)) {
 				this.setState({
 					showStateList: false
@@ -96,14 +100,19 @@ class RegisterPage extends React.Component {
 			})
 		}
 
-    handleChange(event) {
+    handleChange(field, event) {
         const { name, value } = event.target;
         const { user } = this.state;
+				var fields = this.state.fields;
+				fields[field] = event.target.value;
+
+
         this.setState({
             user: {
                 ...user,
                 [name]: value
-            }
+            },
+						fields: fields
         });
     }
 
@@ -113,10 +122,75 @@ class RegisterPage extends React.Component {
         this.setState({ submitted: true });
         const { user } = this.state;
         const { dispatch } = this.props;
-        if (user.firstName && user.lastName && user.password && user.email) {
+
+        if (this.handleValidation() && user.firstName && user.lastName && user.password && user.email && user.rentalAddress && user.billingStreet && user.billingCity && user.billingZipcode && user.billingState) {
             dispatch(userActions.register(user));
         }
     }
+
+		handleValidation() {
+			const fields = this.state.fields;
+			const errors = {};
+			var formIsValid = true;
+
+			//phone number
+			if (!fields["phoneNumber"]) {
+				formIsValid = false;
+				errors["phoneNumber"] = "Phone number is required";
+			}
+
+			if (typeof fields["phoneNumber"] !== "undefined") {
+				if (!fields["phoneNumber"].match(/^[0-9]+$/)) {
+					formIsValid = false;
+					errors["phoneNumber"] = "Phone number can only consist of numbers(0-9)";
+				}
+			}
+
+			//first name
+			if (!fields["firstName"]) {
+				formIsValid = false;
+				errors["firstName"] = "First name is required";
+			}
+
+			if (typeof fields["firstName"] !== "undefined") {
+				if (!fields["firstName"].match(/^[a-zA-Z]+$/)) {
+					formIsValid = false;
+					errors["firstName"] = "Name can only consist of letters(a-z)";
+				}
+			}
+
+			//last name
+			if (!fields["lastName"]) {
+				formIsValid = false;
+				errors["lastName"] = "Last name is required";
+			}
+
+			if (typeof fields["lastName"] !== "undefined") {
+				if (!fields["lastName"].match(/^[a-zA-Z]+$/)) {
+					formIsValid = false;
+					errors["lastName"] = "Name can only consist of letters(a-z)";
+				}
+			}
+
+			//email
+			if (!fields["email"]) {
+				formIsValid = false;
+				errors["email"] = "Email is required";
+			}
+
+			if (typeof fields["email"] !== "undefined") {
+				var lastAtPos = fields["email"].lastIndexOf('@');
+				var lastDotPos = fields["email"].lastIndexOf('.');
+
+				if (!(lastAtPos < lastDotPos && lastAtPos > 0 && fields["email"].indexOf('@@') == -1 && lastDotPos > 2 && (fields["email"].length - lastDotPos) > 2)) {
+					formIsValid = false;
+					errors["email"] = "Email is not valid";
+				}
+			}
+
+			this.setState({errors: errors});
+			return formIsValid;
+		}
 
     render() {
         const { registering  } = this.props;
@@ -125,40 +199,32 @@ class RegisterPage extends React.Component {
             <div className="col-md-10 col-md-offset-1">
                 <h2>Register</h2>
                 <form name="form" onSubmit={this.handleSubmit}>
-                    <div className={'form-group' + (submitted && !user.firstName ? ' has-error' : '')}>
+                    <div className={'form-group' + (submitted && this.state.errors["firstName"] ? ' has-error' : '')}>
                         <label htmlFor="firstName">First Name</label>
-                        <input type="text" className="form-control" name="firstName" value={user.firstName} onChange={this.handleChange} />
-                        {submitted && !user.firstName &&
-                            <div className="help-block">First Name is required</div>
-                        }
+                        <input type="text" className="form-control" name="firstName" value={user.firstName} onChange={this.handleChange.bind(this, "firstName")} />
+                        <div className="help-block">{this.state.errors["firstName"]}</div>
                     </div>
-                    <div className={'form-group' + (submitted && !user.lastName ? ' has-error' : '')}>
+                    <div className={'form-group' + (submitted && this.state.errors["lastName"] ? ' has-error' : '')}>
                         <label htmlFor="lastName">Last Name</label>
-                        <input type="text" className="form-control" name="lastName" value={user.lastName} onChange={this.handleChange} />
-                        {submitted && !user.lastName &&
-                            <div className="help-block">Last Name is required</div>
-                        }
+                        <input type="text" className="form-control" name="lastName" value={user.lastName} onChange={this.handleChange.bind(this, "lastName")} />
+                        <div className="help-block">{this.state.errors["lastName"]}</div>
                     </div>
                     <div className={'form-group' + (submitted && !user.password ? ' has-error' : '')}>
                         <label htmlFor="password">Password</label>
-                        <input type="password" className="form-control" name="password" value={user.password} onChange={this.handleChange} />
+                        <input type="password" className="form-control" name="password" value={user.password} onChange={this.handleChange.bind(this, "password")} />
                         {submitted && !user.password &&
                             <div className="help-block">Password is required</div>
                         }
                     </div>
-                    <div className={'form-group' + (submitted && !user.email ? ' has-error' : '')}>
+                    <div className={'form-group' + (submitted && this.state.errors["email"] ? ' has-error' : '')}>
                         <label htmlFor="email">Email</label>
-                        <input type="text" className="form-control" name="email" value={user.email} onChange={this.handleChange} />
-                        {submitted && !user.email &&
-                            <div className="help-block">Email is required</div>
-                        }
+                        <input type="text" className="form-control" name="email" value={user.email} onChange={this.handleChange.bind(this, "email")} />
+                        <div className="help-block">{this.state.errors["email"]}</div>
                     </div>
-                    <div className={'form-group' + (submitted && !user.phoneNumber ? ' has-error' : '')}>
+                    <div className={'form-group' + (submitted && this.state.errors["phoneNumber"] ? ' has-error' : '')}>
                         <label htmlFor="phoneNumber">Phone Number</label>
-                        <input type="text" className="form-control" name="phoneNumber" value={user.phoneNumber} onChange={this.handleChange} />
-                        {submitted && !user.phoneNumber &&
-                            <div className="help-block">Phone Number is required</div>
-                        }
+                        <input type="tel" className="form-control" name="phoneNumber" value={user.phoneNumber} onChange={this.handleChange.bind(this, "phoneNumber")} maxLength="10" />
+                        <div className="help-block">{this.state.errors["phoneNumber"]}</div>
                     </div>
 
 
@@ -168,7 +234,7 @@ class RegisterPage extends React.Component {
 											<div className="col-xs-6">
 												<div className={'form-group' + (submitted && !user.billingStreet ? ' has-error' : '')}>
 														<label htmlFor="billingStreet">Street</label>
-														<input type="text" className="form-control" name="billingStreet" value={user.billingStreet} onChange={this.handleChange} />
+														<input type="text" className="form-control" name="billingStreet" value={user.billingStreet} onChange={this.handleChange.bind(this, "billingStreet")} />
 														{submitted && !user.billingStreet &&
 																<div className="help-block">Street is required</div>
 														}
@@ -177,7 +243,7 @@ class RegisterPage extends React.Component {
 											<div className="col-xs-6">
 												<div className={'form-group' + (submitted && !user.billingCity ? ' has-error' : '')}>
 														<label htmlFor="billingCity">City</label>
-														<input type="text" className="form-control" name="billingCity" value={user.billingCity} onChange={this.handleChange} />
+														<input type="text" className="form-control" name="billingCity" value={user.billingCity} onChange={this.handleChange.bind(this, "billingCity")} />
 														{submitted && !user.billingCity &&
 																<div className="help-block">City is required</div>
 														}
@@ -186,7 +252,7 @@ class RegisterPage extends React.Component {
 											<div className="col-xs-6">
 												<div className={'form-group' + (submitted && !user.billingZipcode ? ' has-error' : '')}>
 														<label htmlFor="billingZipcode">Zipcode</label>
-														<input type="text" className="form-control" name="billingZipcode" value={user.billingZipcode} onChange={this.handleChange} />
+														<input type="text" className="form-control" name="billingZipcode" value={user.billingZipcode} onChange={this.handleChange.bind(this, "billingZipcode")} />
 														{submitted && !user.billingZipcode &&
 																<div className="help-block">Zipcode is required</div>
 														}
@@ -226,7 +292,7 @@ class RegisterPage extends React.Component {
 															type="hidden"
 															value={user.billingState}
 															name="billingState"
-															onChange={this.handleChange}
+															onChange={this.handleChange.bind(this, "billingState")}
 														/>
 														{submitted && !user.billingState &&
 															<div className="help-block"> State is required</div>
@@ -269,7 +335,7 @@ class RegisterPage extends React.Component {
 													type="hidden"
 													value={user.rentalAddress}
 													name="rentalAddress"
-													onChange={this.handleChange}
+													onChange={this.handleChange.bind(this, "rentalAddress")}
 												/>
 												{submitted && !user.rentalAddress &&
 													<div className="help-block"> Rental address is required</div>

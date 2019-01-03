@@ -7,7 +7,7 @@
   },
   "license": "MIT",
   "scripts": {
-    "start": "webpack-dev-server --open"
+    "start": "webpack-dev-server --host 0.0.0.0 --disable-host-check"
   },
   "dependencies": {
     "history": "^4.6.3",
@@ -29,6 +29,7 @@
     "css-loader": "^0.23.1",
     "html-webpack-plugin": "^2.26.0",
     "path": "^0.12.7",
+    "reactstrap": "^7.0.2",
     "style-loader": "^0.13.2",
     "webpack": "^3.6.0",
     "webpack-dev-server": "^2.8.2"

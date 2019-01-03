@@ -6,12 +6,13 @@ export const userService = {
     logout,
     register,
     getAll,
+		getAllNotifications,
     getById,
     update,
     delete: _delete
 };
 
-function login(username, password) {
+function login(email, password) {
 
 	let header = new Headers({
 		'Access-Control-Allow-Origin':'*',
@@ -20,13 +21,15 @@ function login(username, password) {
 
     const requestOptions = {
         method: 'POST',
-	mode: 'cors',
+				mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ email, password })
     };
 
     //return fetch(`${config.apiurl}/users/authenticate`, requestOptions)
-    return fetch("http://192.168.1.125:8000/users/authenticate", requestOptions)
+    //return fetch("http://192.168.1.125:8000/users/authenticate", requestOptions)
+    //return fetch("http://10.0.0.152:8000/users/authenticate", requestOptions)
+    return fetch("http://rentalmgmt.co:8000/users/authenticate", requestOptions)
         .then(handleResponse)
         .then(user => {
             // login successful if there's a jwt token in the response
@@ -47,10 +50,24 @@ function logout() {
 function getAll() {
     const requestOptions = {
         method: 'GET',
+				mode: 'cors',
         headers: authHeader()
     };
 
-    return fetch(`${config.apiUrl}/users`, requestOptions).then(handleResponse);
+    //return fetch(`${config.apiUrl}/users`, requestOptions).then(handleResponse);
+    //return fetch("http://10.0.0.152:8000/users/all", requestOptions).then(handleResponse);
+    return fetch("http://rentalmgmt.co:8000/users/all", requestOptions).then(handleResponse);
+}
+
+function getAllNotifications() {
+	console.log("_action getallnotifications");
+	const requestOptions = {
+		method: 'GET',
+		mode: 'cors',
+		headers: authHeader()
+	};
+
+	return fetch("http://rentalmgmt.co:8000/users/notification/all", requestOptions).then(handleResponse);
 }
 
 function getById(id) {
@@ -70,7 +87,9 @@ function register(user) {
     };
 
     //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    return fetch("http://192.168.1.125:8000/users/register", requestOptions).then(handleResponse);
+    //return fetch("http://192.168.1.125:8000/users/register", requestOptions).then(handleResponse);
+    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
+    return fetch("http://rentalmgmt.co:8000/users/register", requestOptions).then(handleResponse);
 }
 
 function update(user) {
@@ -80,7 +99,7 @@ function update(user) {
         body: JSON.stringify(user)
     };
 
-    return fetch(`${config.apiUrl}/users/${user.id}`, requestOptions).then(handleResponse);;
+    return fetch(`${config.apiUrl}/users/${user.id}`, requestOptions).then(handleResponse);
 }
 
 // prefixed function name with underscore because delete is a reserved word in javascript
@@ -94,7 +113,7 @@ function _delete(id) {
 }
 
 function handleResponse(response) {
-	console.log(response);
+		console.log(response);
     return response.text().then(text => {
         const data = text && JSON.parse(text);
         if (!response.ok) {

@@ -8,18 +8,24 @@ export const userActions = {
     logout,
     register,
     getAll,
+    getAllNotifications,
     delete: _delete
 };
 
-function login(username, password) {
+function login(email, password) {
     return dispatch => {
-        dispatch(request({ username }));
+        dispatch(request({ email }));
 
-        userService.login(username, password)
+        userService.login(email, password)
             .then(
                 user => { 
                     dispatch(success(user));
-                    history.push('/');
+										if (user.userType == "tenant") {
+											console.log(user);
+                    	history.push('/');
+										} else {
+											history.push('/landlord');
+										}
                 },
                 error => {
                     dispatch(failure(error.toString()));
@@ -75,6 +81,23 @@ function getAll() {
     function request() { return { type: userConstants.GETALL_REQUEST } }
     function success(users) { return { type: userConstants.GETALL_SUCCESS, users } }
     function failure(error) { return { type: userConstants.GETALL_FAILURE, error } }
+}
+
+function getAllNotifications() {
+		console.log("_service getallnotification");
+    return dispatch => {
+        dispatch(request());
+
+        userService.getAllNotifications()
+            .then(
+                notifications => dispatch(success(notifications)),
+                error => dispatch(failure(error.toString()))
+            );
+    };
+
+    function request() { return { type: userConstants.GETALL_NOTIFICATIONS_REQUEST } }
+    function success(notifications) { return { type: userConstants.GETALL_NOTIFICATIONS_SUCCESS, notifications } }
+    function failure(error) { return { type: userConstants.GETALL_NOTIFICATIONS_FAILURE, error } }
 }
 
 // prefixed function name with underscore because delete is a reserved word in javascript

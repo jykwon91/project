@@ -12,48 +12,75 @@ class LoginPage extends React.Component {
         this.props.dispatch(userActions.logout());
 
         this.state = {
-            username: '',
+            email: '',
             password: '',
-            submitted: false
+            submitted: false,
+						fields: {},
+						errors:{}
         };
 
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
     }
 
-    handleChange(e) {
+    handleChange(field, e) {
         const { name, value } = e.target;
-        this.setState({ [name]: value });
+				var fields = this.state.fields;
+				fields[field] = e.target.value;
+        this.setState({ [name]: value, fields: fields});
     }
 
     handleSubmit(e) {
         e.preventDefault();
 
         this.setState({ submitted: true });
-        const { username, password } = this.state;
+        const { email, password } = this.state;
         const { dispatch } = this.props;
-        if (username && password) {
-            dispatch(userActions.login(username, password));
+        if (this.handleValidation() && email && password) {
+            dispatch(userActions.login(email, password));
         }
     }
 
+		handleValidation() {
+			const fields = this.state.fields;
+			const errors = {};
+			var formIsValid = true;
+
+			//email
+			if (!fields["email"]) {
+				formIsValid = false;
+				errors["email"] = "Email is required";
+			}
+
+			if (typeof fields["email"] !== "undefined") {
+				var lastAtPos = fields["email"].lastIndexOf('@');
+				var lastDotPos = fields["email"].lastIndexOf('.');
+
+				if (!(lastAtPos < lastDotPos && lastAtPos > 0 && fields["email"].indexOf('@@') == -1 && lastDotPos > 2 && (fields["email"].length - lastDotPos) > 2)) {
+					formIsValid = false;
+					errors["email"] = "Email is not valid";
+				}
+			}
+
+			this.setState({errors: errors});
+			return formIsValid;
+		}
+
     render() {
         const { loggingIn } = this.props;
-        const { username, password, submitted } = this.state;
+        const { email, password, submitted } = this.state;
         return (
             <div className="col-md-6 col-md-offset-3">
                 <h2>Login</h2>
                 <form name="form" onSubmit={this.handleSubmit}>
-                    <div className={'form-group' + (submitted && !username ? ' has-error' : '')}>
-                        <label htmlFor="username">Username</label>
-                        <input type="text" className="form-control" name="username" value={username} onChange={this.handleChange} />
-                        {submitted && !username &&
-                            <div className="help-block">Username is required</div>
-                        }
+                    <div className={'form-group' + (submitted && this.state.errors["email"] ? ' has-error' : '')}>
+                        <label htmlFor="email">Email</label>
+                        <input type="text" className="form-control" name="email" value={email} onChange={this.handleChange.bind(this, "email")} />
+                        <div className="help-block">{this.state.errors["email"]}</div>
                     </div>
                     <div className={'form-group' + (submitted && !password ? ' has-error' : '')}>
                         <label htmlFor="password">Password</label>
-                        <input type="password" className="form-control" name="password" value={password} onChange={this.handleChange} />
+                        <input type="password" className="form-control" name="password" value={password} onChange={this.handleChange.bind(this, "password")} />
                         {submitted && !password &&
                             <div className="help-block">Password is required</div>
                         }
