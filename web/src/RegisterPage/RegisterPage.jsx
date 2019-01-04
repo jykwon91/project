@@ -26,10 +26,7 @@ class RegisterPage extends React.Component {
 						rentalAddressList: [{value:'6738 Peerless St, Houston, TX, 77021', id:1}, {value:'Hello World', id:2}],
 						showRentalAddressList: false,
 						selectedRentalAddress: {value:'Select Home/Apt Address', id:99999},
-						stateList: this.props.stateList || [
-							{value:'TX', id:1}, 
-							{value:'NO', id:2}
-						],
+						stateList: props.stateList,
 						showStateList: false,
 						selectedState: {value:'Select State', id:99999},
 						fields: {},
@@ -38,6 +35,8 @@ class RegisterPage extends React.Component {
 
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
+				this.handleClick = this.handleClick.bind(this);
+				this.handleOutsideClick = this.handleOutsideClick.bind(this);
     }
 
 		dropDownRentalAddress = () => {
@@ -70,14 +69,20 @@ class RegisterPage extends React.Component {
 			}
 		}))
 
-		componentWillMount() {
-			document.addEventListener('mousedown', this.handleClick, false);
+		static getDerivedStateFromProps(props, state) {
+			if (props.stateList !== state.stateList) {
+				return {
+					stateList: props.stateList
+				};
+			}
+			return null;
 		}
 
-		componentWillUnmount() {
-			document.removeEventListener('mousedown', this.handleClick, false);
+		componentDidMount() {
+			this.props.dispatch(userActions.getStateList());
 		}
 
+/*
 		handleClick = (e) => {
 			if (this.node.contains(e.target)) {
 				this.setState({
@@ -92,12 +97,23 @@ class RegisterPage extends React.Component {
 			}
 			this.handleClickOutside();
 		}
+*/
+		handleClick() {
+			if (!this.state.showStateList) {
+				document.addEventListener('click', this.handleOutsideClick, false);
+			} else {
+				document.removeEventListener('click', this.handleOutsideClick, false);
+			}
 
-		handleClickOutside() {
-			this.setState({
-				showRentalAddressList: false,
-				showStateList: false
-			})
+			this.setState({ showStateList: !this.state.showStateList});
+		}
+
+		handleOutsideClick() {
+			if (this.node.contains(e.target)) {
+				return;
+			}
+
+			this.handleClick();
 		}
 
     handleChange(field, event) {
@@ -143,6 +159,19 @@ class RegisterPage extends React.Component {
 				if (!fields["phoneNumber"].match(/^[0-9]+$/)) {
 					formIsValid = false;
 					errors["phoneNumber"] = "Phone number can only consist of numbers(0-9)";
+				}
+			}
+
+			//billingZipcode
+			if (!fields["billingZipcode"]) {
+				formIsValid = false;
+				errors["billingZipcode"] = "Zipcode is required";
+			}
+
+			if (typeof fields["billingZipcode"] !== "undefined") {
+				if (!fields["billingZipcode"].match(/^[0-9]+$/)) {
+					formIsValid = false;
+					errors["billingZipcode"] = "Zipcode can only consist of numbers(0-9)";
 				}
 			}
 
@@ -193,7 +222,7 @@ class RegisterPage extends React.Component {
 		}
 
     render() {
-        const { registering  } = this.props;
+        const { registering, stateList } = this.props;
         const { user, submitted } = this.state;
         return (
             <div className="col-md-10 col-md-offset-1">
@@ -250,18 +279,16 @@ class RegisterPage extends React.Component {
 												</div>
 											</div>
 											<div className="col-xs-6">
-												<div className={'form-group' + (submitted && !user.billingZipcode ? ' has-error' : '')}>
+												<div className={'form-group' + (submitted && this.state.errors["billingZipcode"] ? ' has-error' : '')} style={{width: "100px"}}>
 														<label htmlFor="billingZipcode">Zipcode</label>
-														<input type="text" className="form-control" name="billingZipcode" value={user.billingZipcode} onChange={this.handleChange.bind(this, "billingZipcode")} />
-														{submitted && !user.billingZipcode &&
-																<div className="help-block">Zipcode is required</div>
-														}
+														<input type="text" className="form-control" name="billingZipcode" value={user.billingZipcode} onChange={this.handleChange.bind(this, "billingZipcode")} maxLength="5" />
+														<div className="help-block">{this.state.errors["billingZipcode"]}</div>
 												</div>
 											</div>
 											<div className="col-xs-6">
                         <label htmlFor="billingState">State</label>
                     		<div className={'form-group' + (submitted && !user.billingState ? ' has-error' : '')} ref={tempnode => this.tempnode = tempnode}>
-													<div className="select-box--box" style={{width: this.state.width || "100%"}}>
+													<div className="select-box--box" style={{width: this.state.width || "150px"}}>
 														<div className="select-box--container">
 															<div
 																className="select-box--selected-item"
@@ -274,11 +301,11 @@ class RegisterPage extends React.Component {
 																	<span className={`${this.state.showStateList ? 'select-box--arrow-up' : 'select-box--arrow-down'}`}/>
 															</div>
 															<div 
-																style={{display: this.state.showStateList ? 'block' : 'none'}} 
+																style={{display: this.state.showStateList ? 'block' : 'none', maxHeight: '400px', overflow: 'scroll'}} 
 																className="select-box--items"
 															>
-															{
-																this.state.stateList.map(_state => <div 
+															{ this.state.stateList.items &&
+																this.state.stateList.items.map(_state => <div 
 																	key={ _state.id } 
 																	onClick={() => this.selectState(_state)} 
 																	className={this.state.selectedState === _state ? 'selected' : ''}
@@ -358,8 +385,11 @@ class RegisterPage extends React.Component {
 
 function mapStateToProps(state) {
     const { registering } = state.registration;
+		const { rentalAddresses, stateList } = state;
     return {
-        registering
+        registering,
+				rentalAddresses,
+				stateList
     };
 }
 

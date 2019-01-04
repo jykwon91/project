@@ -85,9 +85,8 @@ class LandLordPage extends React.Component {
                     </ul>
                 }
 
-                <p>
-                    <Link to="/login">Logout</Link>
-                </p>
+								<p><Link to="/home/register">Register Rental Home</Link></p>
+                <p><Link to="/login">Logout</Link></p>
             </div>
         );
     }

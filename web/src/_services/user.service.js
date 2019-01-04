@@ -5,11 +5,11 @@ export const userService = {
     login,
     logout,
     register,
+		registerLandLordProperty,
     getAll,
 		getAllNotifications,
-    getById,
-    update,
-    delete: _delete
+		getStateList,
+    //delete: _delete
 };
 
 function login(email, password) {
@@ -27,9 +27,8 @@ function login(email, password) {
     };
 
     //return fetch(`${config.apiurl}/users/authenticate`, requestOptions)
-    //return fetch("http://192.168.1.125:8000/users/authenticate", requestOptions)
-    //return fetch("http://10.0.0.152:8000/users/authenticate", requestOptions)
-    return fetch("http://rentalmgmt.co:8000/users/authenticate", requestOptions)
+    return fetch("http://10.0.0.152:8000/users/authenticate", requestOptions)
+    //return fetch("http://rentalmgmt.co:8000/users/authenticate", requestOptions)
         .then(handleResponse)
         .then(user => {
             // login successful if there's a jwt token in the response
@@ -60,23 +59,25 @@ function getAll() {
 }
 
 function getAllNotifications() {
-	console.log("_action getallnotifications");
 	const requestOptions = {
 		method: 'GET',
 		mode: 'cors',
 		headers: authHeader()
 	};
 
+	//return fetch("http://10.0.0.152:8000/users/notification/all", requestOptions).then(handleResponse);
 	return fetch("http://rentalmgmt.co:8000/users/notification/all", requestOptions).then(handleResponse);
 }
 
-function getById(id) {
-    const requestOptions = {
-        method: 'GET',
-        headers: authHeader()
-    };
+function getStateList() {
+	const requestOptions = {
+		method: 'GET',
+		mode: 'cors',
+		headers: {'Content-Type': 'application/json'},
+	};
 
-    return fetch(`${config.apiUrl}/users/${id}`, requestOptions).then(handleResponse);
+	//return fetch("http://10.0.0.152:8000/stateList", requestOptions).then(handleResponse);
+	return fetch("http://rentalmgmt.co:8000/stateList", requestOptions).then(handleResponse);
 }
 
 function register(user) {
@@ -87,29 +88,21 @@ function register(user) {
     };
 
     //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    //return fetch("http://192.168.1.125:8000/users/register", requestOptions).then(handleResponse);
     //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
     return fetch("http://rentalmgmt.co:8000/users/register", requestOptions).then(handleResponse);
 }
 
-function update(user) {
+function registerLandLordProperty(address) {
     const requestOptions = {
-        method: 'PUT',
-        headers: { ...authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
+        method: 'POST',
+        //headers: { 'Content-Type': 'application/json' },
+        headers: authHeader(),
+        body: JSON.stringify(address)
     };
 
-    return fetch(`${config.apiUrl}/users/${user.id}`, requestOptions).then(handleResponse);
-}
-
-// prefixed function name with underscore because delete is a reserved word in javascript
-function _delete(id) {
-    const requestOptions = {
-        method: 'DELETE',
-        headers: authHeader()
-    };
-
-    return fetch(`${config.apiUrl}/users/${id}`, requestOptions).then(handleResponse);
+    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
+    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
+    return fetch("http://rentalmgmt.co:8000/users/landlord/property/register", requestOptions).then(handleResponse);
 }
 
 function handleResponse(response) {

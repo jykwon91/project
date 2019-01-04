@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"github.com/google/uuid"
 	"github.com/dgrijalva/jwt-go"
+//	"github.com/logpacker/PayPal-Go-SDK"
 	"gopkg.in/gomail.v2"
 )
 
@@ -27,6 +28,7 @@ type User struct {
 	FirstName             string
 	LastName              string
 	RentalHomeAddress     Address //Maybe make a struct for address
+	OwnedPropertyAddressList     []Address //Maybe make a struct for address
 	BillingAddress        Address
 	PaymentHistory        []Payment
 	ServiceRequestHistory []ServiceRequest
@@ -43,11 +45,16 @@ type Address struct {
 	Zipcode string
 	City    string
 	State   string
+	PropertyType string
 }
 
 type ServiceRequest struct {
-	RequestTime int64 //epoch time - time.Unix(secs, 0) to print date
-	RequestBody string
+	Processing bool
+	Completed bool
+	SrvRequestID string
+	SrvRequestTime string //epoch time - time.Unix(secs, 0) to print date
+	SrvRequestBody string
+	RentalAddress Address
 	Tenant      User
 }
 
@@ -56,20 +63,26 @@ type ServiceRequest struct {
 //fmt.Println(secs)
 //fmt.Println(time.Unix(secs, 0))
 type Notification struct {
-	Time string //epoch time
+	NotificationID string
+	CreatedOn string //epoch time
 	Message string
 	From string
 }
 
 type Document struct {
+	DocumentID string
 	DocumentType  string //receipt, contract, contact, personal
 	DocumentBytes []byte
 }
 
 // could this be tied to Document
 type Payment struct {
+	PaymentID string
 	PaymentType string
+	PaymentMethod string
 	Amount      string
+	Paid bool
+	DueDate string //epoch
 }
 
 type JwtToken struct {
@@ -136,7 +149,7 @@ func altLogger(errStr string) {
 // Middleware function which will be called for each request
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		if !strings.EqualFold(req.URL.Path, "/users/authenticate") && !strings.EqualFold(req.URL.Path, "/users/register") {
+		if !strings.EqualFold(req.URL.Path, "/users/authenticate") && !strings.EqualFold(req.URL.Path, "/users/register") && !strings.EqualFold(req.URL.Path, "/stateList") {
 			var tokenList []string
 			token := req.Header.Get("Authorization")
 
@@ -162,13 +175,17 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 var tokenPass []byte
 
-func main() {
-
+func DailyTaskExec() {
 	for t := range time.NewTicker(86400 * time.Second).C {
-		if t.Day() == 2 {
+		if t.Day() == 1 {
 			emailRentDueNotification()
 		}
 	}
+}
+
+func main() {
+
+	go DailyTaskExec()
 
 	var err error
 	tokenPass, err = ioutil.ReadFile("/home/jkwon/Git/project/etc/tokenpass")
@@ -182,6 +199,8 @@ func main() {
 	router.Handle("/users/register", appHandler(registerUser))
 	router.Handle("/users/all", appHandler(getAllUsers))
 	router.Handle("/users/notification/all", appHandler(getAllNotifications))
+	router.Handle("/stateList", appHandler(getStateList))
+	router.Handle("/users/landlord/property/register", appHandler(registerLandlordProperty))
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost", "http://localhost:8080", "http://192.168.1.125", "http://192.168.1.125:8080","http://rentalmgmt.co:8080","http://rentalmgmt.co"},
@@ -198,6 +217,50 @@ func main() {
 }
 
 func emailRentDueNotification() {
+	email, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmail")
+	if err != nil {
+		altLogger(err.Error())
+	}
+
+	emailPass, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmailPass")
+	if err != nil {
+		altLogger(err.Error())
+	}
+	var userList []User
+
+	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
+	if err != nil {
+		altLogger(err.Error())
+	}
+	json.Unmarshal(bytes, &userList)
+
+	//kvs := map[string]string{"Alan Ayala": "kanonbolt128@gmail.com", "Laura Smith": "smithlaura9295@gmail.com"}
+	kvs := map[string]string{"Alan Ayala": "jasonykwon91@gmail.com", "Laura Smith": "jasonykwon91@gmail.com"}
+
+	t := time.Now()
+	year := strconv.Itoa(t.Year())
+	month := t.Month().String()
+	day := strconv.Itoa(t.Day())
+	theDate := month + " " + day + " " + year
+
+	for name, tenantEmail := range kvs {
+		m := gomail.NewMessage()
+		m.SetHeader("From", string(email))
+		m.SetHeader("To", tenantEmail)
+		m.SetHeader("Subject", "Rent due for " + month + " " + year)
+		m.SetBody("text/html",`<p><b>Hi `+name+`</b></p><br><p>This is a reminder that rent is due today(`+ theDate +`)</p>`)
+
+
+		d := gomail.NewDialer("smtp.gmail.com", 587, string(email), string(emailPass))
+
+		// Send the email to Bob, Cora and Dan.
+		if err := d.DialAndSend(m); err != nil {
+			altLogger(err.Error())
+		}
+	}
+}
+
+func emailReceipts() {
 
 	email, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmail")
 	if err != nil {
@@ -272,6 +335,105 @@ func emailRentDueNotification() {
 	}
 }
 
+func getUserListFromDatabaseAndUserEmail(claims jwt.MapClaims) ([]User, string, error) {
+
+	var email string
+	for k, v := range claims {
+		if strings.EqualFold(k, "email") {
+			email = v.(string)
+		}
+	}
+
+	var userList []User
+
+	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
+	if err != nil {
+		return nil, "", err
+	}
+	json.Unmarshal(bytes, &userList)
+
+	return userList, email, nil
+}
+
+func updateUserDatabase(data []User) error {
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile("/home/jkwon/Git/project/database/Users", bytes, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func registerLandlordProperty(resp http.ResponseWriter, req *http.Request) *appError {
+
+	token, err := jwt.Parse(req.Header.Get("Authorization"), func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Failed to authenticate user")
+		}
+		return tokenPass, nil
+	})
+	if err != nil {
+		return &appError{err, "Registering landlord property failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+
+		var address Address
+		err := readReqBody(req, &address)
+		if err != nil {
+			return &appError{err, "Registering landlord property failed. Please contact customer support or try again later.", "Failed to read request", 500}
+		}
+
+		userList, email, err := getUserListFromDatabaseAndUserEmail(claims)
+		if err != nil {
+			return &appError{err, "Registering landlord property failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
+		}
+
+		for i, user := range userList {
+			if strings.EqualFold(user.Email, email) {
+				userList[i].OwnedPropertyAddressList = append(userList[i].OwnedPropertyAddressList, address)
+			}
+		}
+
+		err = updateUserDatabase(userList)
+		if err != nil {
+			return &appError{err, "Registering landlord property failed. Server down. Please contact customer support or try again later.", "Failed to update database", 500}
+		}
+
+	} else {
+		return &appError{errors.New("Failed to authenticate user"), "Registering landlord property failed. Server down. Please contact customer support or try again later", "Failed to authenticate user", 403}
+	}
+
+	logger(nil, resp, req)
+	return nil
+}
+
+func getStateList(resp http.ResponseWriter, req *http.Request) *appError {
+	type State struct {
+		id int
+		value string
+		name string
+	}
+	var stateList []State
+
+	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/StateListWithName")
+	if err != nil {
+		return &appError{err, "Getting stateList failed. Server down. Please contact customer support or try again later.", "Failed to read database file", 500}
+	}
+	json.Unmarshal(bytes, &stateList)
+
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(200)
+	resp.Write(bytes)
+
+	logger(nil, resp, req)
+	return nil
+}
+
 func getAllNotifications(resp http.ResponseWriter, req *http.Request) *appError {
 	token, err := jwt.Parse(req.Header.Get("Authorization"), func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -280,7 +442,7 @@ func getAllNotifications(resp http.ResponseWriter, req *http.Request) *appError 
 		return tokenPass, nil
 	})
 	if err != nil {
-		return &appError{err, "Getting notifications failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 500}
+		return &appError{err, "Getting notifications failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
@@ -316,7 +478,7 @@ func getAllNotifications(resp http.ResponseWriter, req *http.Request) *appError 
 		resp.WriteHeader(200)
 		resp.Write(bytes)
 	} else {
-		return &appError{errors.New("Failed to authenticate user"), "Get notifications failed. Server down. Please contact customer support or try again later", "Failed to authenticate user", 500}
+		return &appError{errors.New("Failed to authenticate user"), "Get notifications failed. Server down. Please contact customer support or try again later", "Failed to authenticate user", 403}
 	}
 
 	logger(nil, resp, req)
@@ -433,6 +595,9 @@ func authenticateUser(resp http.ResponseWriter, req *http.Request) *appError {
 
 	var reqBody ReqBody
 	err := readReqBody(req, &reqBody)
+	if err != nil {
+		return &appError{err, "Login failed. Server down. Please contact customer support or try again later.", "Failed to read request body", 500}
+	}
 
 	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
 	if err != nil {
@@ -440,13 +605,19 @@ func authenticateUser(resp http.ResponseWriter, req *http.Request) *appError {
 	}
 	json.Unmarshal(bytes, &userList)
 
+	found := false
 	for _, user := range userList {
 		if strings.EqualFold(user.Email, reqBody.Email) {
 			if err := bcrypt.CompareHashAndPassword(user.Password, []byte(reqBody.Password)); err!= nil {
-				return &appError{err, "Login failed. Wrong email or password was entered. Contact customer support for forgotten email and password", "Wrong password", 404}
+				return &appError{err, "Login failed. Wrong password was entered. Contact customer support for forgotten password", "Wrong password", 403}
 			}
+			found = true
 			userObj = user
 		}
+	}
+
+	if !found {
+		return &appError{errors.New("Wrong email was entered"), "Login failed. Wrong email was entered. Contact customer support for forgotten email", "Wrong email", 403}
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -493,7 +664,7 @@ func getAllUsers(resp http.ResponseWriter, req *http.Request) *appError {
 		return tokenPass, nil
 	})
 	if err != nil {
-		return &appError{err, "Getting all users failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 500}
+		return &appError{err, "Getting all users failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
@@ -537,7 +708,7 @@ func getAllUsers(resp http.ResponseWriter, req *http.Request) *appError {
 		resp.WriteHeader(200)
 		resp.Write(bytes)
 	} else {
-		return &appError{errors.New("Failed to authenticate user"), "Get all users failed. Server down. Please contact customer support or try again later", "Failed to authenticate user", 500}
+		return &appError{errors.New("Failed to authenticate user"), "Get all users failed. Server down. Please contact customer support or try again later", "Failed to authenticate user", 403}
 	}
 
 	logger(nil, resp, req)

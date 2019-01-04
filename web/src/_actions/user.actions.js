@@ -9,6 +9,8 @@ export const userActions = {
     register,
     getAll,
     getAllNotifications,
+		getStateList,
+		registerLandLordProperty,
     delete: _delete
 };
 
@@ -21,9 +23,8 @@ function login(email, password) {
                 user => { 
                     dispatch(success(user));
 										if (user.userType == "tenant") {
-											console.log(user);
                     	history.push('/');
-										} else {
+										} else if(user.userType == "landlord") {
 											history.push('/landlord');
 										}
                 },
@@ -67,6 +68,29 @@ function register(user) {
     function failure(error) { return { type: userConstants.REGISTER_FAILURE, error } }
 }
 
+function registerLandLordProperty(address) {
+    return dispatch => {
+        dispatch(request(address));
+
+        userService.registerLandLordProperty(address)
+            .then(
+                address => { 
+                    dispatch(success());
+                    history.push('/landlord');
+                    dispatch(alertActions.success('Registration successful'));
+                },
+                error => {
+                    dispatch(failure(error.toString()));
+                    dispatch(alertActions.error(error.toString()));
+                }
+            );
+    };
+
+    function request(address) { return { type: userConstants.REGISTER_LANDLORD_PROPERTY_REQUEST, address } }
+    function success(address) { return { type: userConstants.REGISTER_LANDLORD_PROPERTY_SUCCESS, address } }
+    function failure(error) { return { type: userConstants.REGISTER_LANDLORD_PROPERTY_FAILURE, error } }
+}
+
 function getAll() {
     return dispatch => {
         dispatch(request());
@@ -84,7 +108,6 @@ function getAll() {
 }
 
 function getAllNotifications() {
-		console.log("_service getallnotification");
     return dispatch => {
         dispatch(request());
 
@@ -98,6 +121,22 @@ function getAllNotifications() {
     function request() { return { type: userConstants.GETALL_NOTIFICATIONS_REQUEST } }
     function success(notifications) { return { type: userConstants.GETALL_NOTIFICATIONS_SUCCESS, notifications } }
     function failure(error) { return { type: userConstants.GETALL_NOTIFICATIONS_FAILURE, error } }
+}
+
+function getStateList() {
+    return dispatch => {
+        dispatch(request());
+
+        userService.getStateList()
+            .then(
+                stateList => dispatch(success(stateList)),
+                error => dispatch(failure(error.toString()))
+            );
+    };
+
+    function request() { return { type: userConstants.GET_STATE_LIST_REQUEST } }
+    function success(stateList) { return { type: userConstants.GET_STATE_LIST_SUCCESS, stateList } }
+    function failure(error) { return { type: userConstants.GET_STATE_LIST_FAILURE, error } }
 }
 
 // prefixed function name with underscore because delete is a reserved word in javascript
