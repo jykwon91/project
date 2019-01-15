@@ -7,8 +7,14 @@ export const userService = {
     register,
 		registerLandLordProperty,
     getAll,
+		getAllLandLordProperties,
 		getAllNotifications,
+		getCurrentUser,
 		getStateList,
+		getServiceRequestList,
+		sendNotification,
+		sendServiceReq,
+		updateServiceReq,
     //delete: _delete
 };
 
@@ -27,8 +33,8 @@ function login(email, password) {
     };
 
     //return fetch(`${config.apiurl}/users/authenticate`, requestOptions)
-    return fetch("http://10.0.0.152:8000/users/authenticate", requestOptions)
-    //return fetch("http://rentalmgmt.co:8000/users/authenticate", requestOptions)
+    //return fetch("http://10.0.0.152:8000/users/authenticate", requestOptions)
+    return fetch("http://rentalmgmt.co:8000/users/authenticate", requestOptions)
         .then(handleResponse)
         .then(user => {
             // login successful if there's a jwt token in the response
@@ -69,6 +75,39 @@ function getAllNotifications() {
 	return fetch("http://rentalmgmt.co:8000/users/notification/all", requestOptions).then(handleResponse);
 }
 
+function getServiceRequestList() {
+	const requestOptions = {
+		method: 'GET',
+		mode: 'cors',
+		headers: authHeader()
+	};
+
+	//return fetch("http://10.0.0.152:8000/users/notification/all", requestOptions).then(handleResponse);
+	return fetch("http://rentalmgmt.co:8000/users/service/all", requestOptions).then(handleResponse);
+}
+
+function getAllLandLordProperties() {
+	const requestOptions = {
+		method: 'GET',
+		mode: 'cors',
+		headers: authHeader()
+	};
+
+	//return fetch("http://10.0.0.152:8000/users/notification/all", requestOptions).then(handleResponse);
+	return fetch("http://rentalmgmt.co:8000/landlord/property/all", requestOptions).then(handleResponse);
+}
+
+function getCurrentUser() {
+	const requestOptions = {
+		method: 'GET',
+		mode: 'cors',
+		headers: authHeader()
+	};
+
+	//return fetch("http://10.0.0.152:8000/users/notification/all", requestOptions).then(handleResponse);
+	return fetch("http://rentalmgmt.co:8000/users/currentUser", requestOptions).then(handleResponse);
+}
+
 function getStateList() {
 	const requestOptions = {
 		method: 'GET',
@@ -103,6 +142,45 @@ function registerLandLordProperty(address) {
     //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
     //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
     return fetch("http://rentalmgmt.co:8000/users/landlord/property/register", requestOptions).then(handleResponse);
+}
+
+function sendNotification(notification) {
+    const requestOptions = {
+        method: 'POST',
+        //headers: { 'Content-Type': 'application/json' },
+        headers: authHeader(),
+        body: JSON.stringify(notification)
+    };
+
+    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
+    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
+    return fetch("http://rentalmgmt.co:8000/landlord/notification", requestOptions).then(handleResponse);
+}
+
+function sendServiceReq(serviceReq) {
+    const requestOptions = {
+        method: 'POST',
+        //headers: { 'Content-Type': 'application/json' },
+        headers: authHeader(),
+        body: JSON.stringify(serviceReq)
+    };
+
+    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
+    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
+    return fetch("http://rentalmgmt.co:8000/tenant/service/request", requestOptions).then(handleResponse);
+}
+
+function updateServiceReq(serviceReq) {
+    const requestOptions = {
+        method: 'POST',
+        //headers: { 'Content-Type': 'application/json' },
+        headers: authHeader(),
+        body: JSON.stringify(serviceReq)
+    };
+
+    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
+    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
+    return fetch("http://rentalmgmt.co:8000/landlord/service/request/update", requestOptions).then(handleResponse);
 }
 
 function handleResponse(response) {

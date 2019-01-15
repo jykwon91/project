@@ -9,8 +9,14 @@ export const userActions = {
     register,
     getAll,
     getAllNotifications,
+		getAllLandLordProperties,
+		getServiceRequestList,
 		getStateList,
+		getCurrentUser,
 		registerLandLordProperty,
+		sendNotification,
+		sendServiceReq,
+		updateServiceReq,
     delete: _delete
 };
 
@@ -123,6 +129,50 @@ function getAllNotifications() {
     function failure(error) { return { type: userConstants.GETALL_NOTIFICATIONS_FAILURE, error } }
 }
 
+function getAllLandLordProperties() {
+    return dispatch => {
+        dispatch(request());
+
+        userService.getAllLandLordProperties()
+            .then(
+                landLordPropertyList => dispatch(success(landLordPropertyList)),
+                error => dispatch(failure(error.toString()))
+            );
+    };
+
+    function request() { return { type: userConstants.GET_ALL_LANDLORD_PROPERTIES_REQUEST } }
+    function success(landLordPropertyList) { return { type: userConstants.GET_ALL_LANDLORD_PROPERTIES_SUCCESS, landLordPropertyList } }
+    function failure(error) { return { type: userConstants.GET_ALL_LANDLORD_PROPERTIES_FAILURE, error } }
+}
+
+function getServiceRequestList() {
+    return dispatch => {
+        userService.getServiceRequestList()
+            .then(
+                serviceRequestList => dispatch(success(serviceRequestList)),
+                error => dispatch(failure(error.toString()))
+            );
+    };
+
+    function request() { return { type: userConstants.GET_SERVICEREQ_LIST_REQUEST } }
+    function success(serviceRequestList) { return { type: userConstants.GET_SERVICEREQ_LIST_SUCCESS, serviceRequestList } }
+    function failure(error) { return { type: userConstants.GET_SERVICEREQ_LIST_FAILURE, error } }
+}
+
+function getCurrentUser() {
+    return dispatch => {
+        userService.getCurrentUser()
+            .then(
+                currentUser => dispatch(success(currentUser)),
+                error => dispatch(failure(error.toString()))
+            );
+    };
+
+    function request() { return { type: userConstants.GET_CURRENT_USER_REQUEST } }
+    function success(currentUser) { return { type: userConstants.GET_CURRENT_USER_SUCCESS, currentUser } }
+    function failure(error) { return { type: userConstants.GET_CURRENT_USER_FAILURE, error } }
+}
+
 function getStateList() {
     return dispatch => {
         dispatch(request());
@@ -137,6 +187,73 @@ function getStateList() {
     function request() { return { type: userConstants.GET_STATE_LIST_REQUEST } }
     function success(stateList) { return { type: userConstants.GET_STATE_LIST_SUCCESS, stateList } }
     function failure(error) { return { type: userConstants.GET_STATE_LIST_FAILURE, error } }
+}
+
+function sendNotification(notification) {
+    return dispatch => {
+        dispatch(request(notification));
+
+        userService.sendNotification(notification)
+            .then(
+                notification => { 
+                    dispatch(success());
+                    history.push('/landlord');
+                    dispatch(alertActions.success('Sent notification(s)'));
+                },
+                error => {
+                    dispatch(failure(error.toString()));
+                    dispatch(alertActions.error(error.toString()));
+                }
+            );
+    };
+
+    function request(notification) { return { type: userConstants.SEND_NOTIFICATION_REQUEST, notification } }
+    function success(notification) { return { type: userConstants.SEND_NOTIFICATION_SUCCESS, notification } }
+    function failure(error) { return { type: userConstants.SEND_NOTIFICATION_FAILURE, error } }
+}
+
+function sendServiceReq(serviceReq) {
+    return dispatch => {
+        dispatch(request(serviceReq));
+
+        userService.sendServiceReq(serviceReq)
+            .then(
+                serviceReq => { 
+                    dispatch(success());
+                    history.push('/');
+                    dispatch(alertActions.success('Sent service request'));
+                },
+                error => {
+                    dispatch(failure(error.toString()));
+                    dispatch(alertActions.error(error.toString()));
+                }
+            );
+    };
+
+    function request(serviceReq) { return { type: userConstants.SEND_SERVICEREQ_REQUEST, serviceReq } }
+    function success(serviceReq) { return { type: userConstants.SEND_SERVICEREQ_SUCCESS, serviceReq } }
+    function failure(error) { return { type: userConstants.SEND_SERVICEREQ_FAILURE, error } }
+}
+
+function updateServiceReq(serviceReq) {
+    return dispatch => {
+        dispatch(request(serviceReq));
+
+        userService.updateServiceReq(serviceReq)
+            .then(
+                serviceReq => { 
+                    dispatch(success());
+                },
+                error => {
+                    dispatch(failure(error.toString()));
+                    dispatch(alertActions.error(error.toString()));
+                }
+            );
+    };
+
+    function request(serviceReq) { return { type: userConstants.UPDATE_SERVICEREQ_REQUEST, serviceReq } }
+    function success(serviceReq) { return { type: userConstants.UPDATE_SERVICEREQ_SUCCESS, serviceReq } }
+    function failure(error) { return { type: userConstants.UPDATE_SERVICEREQ_FAILURE, error } }
 }
 
 // prefixed function name with underscore because delete is a reserved word in javascript

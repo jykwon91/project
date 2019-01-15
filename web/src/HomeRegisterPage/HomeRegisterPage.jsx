@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { connect } from 'react-redux';
 import { ListGroup, ListGroupItem, ListGroupItemHeading, ListGroupItemText } from 'reactstrap';
+import { Navbar } from 'react-bootstrap';
 
 import { userActions } from '../_actions';
 
@@ -130,7 +131,7 @@ class HomeRegisterPage extends React.Component {
     }
 
     render() {
-        const { registering, stateList } = this.props;
+        const { registering, stateList, user } = this.props;
 				const { address, submitted } = this.state
         return (
             <div className="col-md-10 col-md-offset-1">
@@ -221,8 +222,10 @@ class HomeRegisterPage extends React.Component {
 
 function mapStateToProps(state) {
 		const { registering } = state.registration;
-    const { address, stateList } = state;
+    const { address, stateList, authentication } = state;
+		const { user } = authentication;
     return {
+				user,
 				registering,
         address,
 				stateList

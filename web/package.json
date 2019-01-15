@@ -29,6 +29,8 @@
     "css-loader": "^0.23.1",
     "html-webpack-plugin": "^2.26.0",
     "path": "^0.12.7",
+    "react-bootstrap": "^0.32.4",
+    "react-moment": "^0.8.4",
     "reactstrap": "^7.0.2",
     "style-loader": "^0.13.2",
     "webpack": "^3.6.0",

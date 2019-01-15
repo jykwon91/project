@@ -1,61 +1,63 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
-	"encoding/json"
-	"io/ioutil"
-	"os"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"golang.org/x/crypto/bcrypt"
-	"github.com/google/uuid"
-	"github.com/dgrijalva/jwt-go"
-//	"github.com/logpacker/PayPal-Go-SDK"
+	//	"github.com/logpacker/PayPal-Go-SDK"
 	"gopkg.in/gomail.v2"
 )
 
 type User struct {
-	UserID                string
-	UserType              string
-	Password              []byte
-	FirstName             string
-	LastName              string
-	RentalHomeAddress     Address //Maybe make a struct for address
-	OwnedPropertyAddressList     []Address //Maybe make a struct for address
-	BillingAddress        Address
-	PaymentHistory        []Payment
-	ServiceRequestHistory []ServiceRequest
-	NotificationList	[]Notification
-	Landlord              string
-	RentalPayment         string
-	LegalDocuments        []Document //need to figure this out
-	Email                 string
-	PhoneNumber           string
+	UserID                   string
+	UserType                 string
+	Password                 []byte
+	FirstName                string
+	LastName                 string
+	RentalAddress            Address
+	OwnedPropertyAddressList []Address
+	BillingAddress           Address
+	PaymentHistory           []Payment
+	ServiceRequestList       []ServiceRequest
+	NotificationList         []Notification
+	Landlord                 string
+	RentalPayment            string
+	LegalDocuments           []Document
+	Email                    string
+	PhoneNumber              string
 }
 
 type Address struct {
-	Street  string
-	Zipcode string
-	City    string
-	State   string
+	AddressID    string
+	Street       string
+	Zipcode      string
+	City         string
+	State        string
 	PropertyType string
 }
 
 type ServiceRequest struct {
-	Processing bool
-	Completed bool
-	SrvRequestID string
-	SrvRequestTime string //epoch time - time.Unix(secs, 0) to print date
-	SrvRequestBody string
-	RentalAddress Address
-	Tenant      User
+	Status          string
+	RequestID       string
+	RequestTime     string
+	StartTime       string
+	CompletedTime   string
+	Message         string
+	RentalAddressID string
+	TenantName      string
 }
 
 //now := time.Now()
@@ -64,29 +66,29 @@ type ServiceRequest struct {
 //fmt.Println(time.Unix(secs, 0))
 type Notification struct {
 	NotificationID string
-	CreatedOn string //epoch time
-	Message string
-	From string
+	CreatedOn      string //epoch time
+	Message        string
+	From           string
 }
 
 type Document struct {
-	DocumentID string
+	DocumentID    string
 	DocumentType  string //receipt, contract, contact, personal
 	DocumentBytes []byte
 }
 
 // could this be tied to Document
 type Payment struct {
-	PaymentID string
-	PaymentType string
+	PaymentID     string
+	PaymentType   string
 	PaymentMethod string
-	Amount      string
-	Paid bool
-	DueDate string //epoch
+	Amount        string
+	Paid          bool
+	DueDate       string //epoch
 }
 
 type JwtToken struct {
-	Token string `json:"token"`
+	Token    string `json:"token"`
 	UserType string `json:"userType"`
 }
 
@@ -146,6 +148,7 @@ func altLogger(errStr string) {
 
 	f.Close()
 }
+
 // Middleware function which will be called for each request
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
@@ -199,11 +202,17 @@ func main() {
 	router.Handle("/users/register", appHandler(registerUser))
 	router.Handle("/users/all", appHandler(getAllUsers))
 	router.Handle("/users/notification/all", appHandler(getAllNotifications))
+	router.Handle("/users/service/all", appHandler(getServiceRequestList))
+	router.Handle("/users/currentUser", appHandler(getCurrentUser))
 	router.Handle("/stateList", appHandler(getStateList))
 	router.Handle("/users/landlord/property/register", appHandler(registerLandlordProperty))
+	router.Handle("/landlord/property/all", appHandler(getAllLandLordProperties))
+	router.Handle("/landlord/notification", appHandler(sendNotification))
+	router.Handle("/landlord/service/request/update", appHandler(updateServiceRequest))
+	router.Handle("/tenant/service/request", appHandler(sendServiceRequest))
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost", "http://localhost:8080", "http://192.168.1.125", "http://192.168.1.125:8080","http://rentalmgmt.co:8080","http://rentalmgmt.co"},
+		AllowedOrigins:   []string{"http://localhost", "http://localhost:8080", "http://192.168.1.125", "http://192.168.1.125:8080", "http://rentalmgmt.co:8080", "http://rentalmgmt.co"},
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS", "PUT", "DELETE"},
 		AllowedHeaders:   []string{"Accept", "Accept-Language", "Content-Type", "Authorization", "Bearer"},
 		AllowCredentials: true,
@@ -216,123 +225,301 @@ func main() {
 	log.Fatal(http.ListenAndServe("0.0.0.0:8000", handler))
 }
 
-func emailRentDueNotification() {
-	email, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmail")
-	if err != nil {
-		altLogger(err.Error())
-	}
+func authenticateTokenAndReturnClaims(tokenString string) (jwt.MapClaims, error) {
 
-	emailPass, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmailPass")
-	if err != nil {
-		altLogger(err.Error())
-	}
-	var userList []User
-
-	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
-	if err != nil {
-		altLogger(err.Error())
-	}
-	json.Unmarshal(bytes, &userList)
-
-	//kvs := map[string]string{"Alan Ayala": "kanonbolt128@gmail.com", "Laura Smith": "smithlaura9295@gmail.com"}
-	kvs := map[string]string{"Alan Ayala": "jasonykwon91@gmail.com", "Laura Smith": "jasonykwon91@gmail.com"}
-
-	t := time.Now()
-	year := strconv.Itoa(t.Year())
-	month := t.Month().String()
-	day := strconv.Itoa(t.Day())
-	theDate := month + " " + day + " " + year
-
-	for name, tenantEmail := range kvs {
-		m := gomail.NewMessage()
-		m.SetHeader("From", string(email))
-		m.SetHeader("To", tenantEmail)
-		m.SetHeader("Subject", "Rent due for " + month + " " + year)
-		m.SetBody("text/html",`<p><b>Hi `+name+`</b></p><br><p>This is a reminder that rent is due today(`+ theDate +`)</p>`)
-
-
-		d := gomail.NewDialer("smtp.gmail.com", 587, string(email), string(emailPass))
-
-		// Send the email to Bob, Cora and Dan.
-		if err := d.DialAndSend(m); err != nil {
-			altLogger(err.Error())
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Failed to authenticate user")
 		}
+		return tokenPass, nil
+	})
+	if err != nil {
+		return nil, err
 	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("Failed to authenticate user")
 }
 
-func emailReceipts() {
-
-	email, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmail")
+func getServiceRequestList(resp http.ResponseWriter, req *http.Request) *appError {
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
 	if err != nil {
-		altLogger(err.Error())
+		return &appError{err, "Getting service request list failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
 	}
 
-	emailPass, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmailPass")
-	if err != nil {
-		altLogger(err.Error())
+	var userType string
+	for k, v := range claims {
+		if strings.EqualFold(k, "userType") {
+			userType = v.(string)
+		}
 	}
+
+	userList, email, err := getUserListFromDatabaseAndUserEmail(claims)
+	if err != nil {
+		return &appError{err, "Getting service request list failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
+	}
+
+	var serviceRequestList []ServiceRequest
+
+	if strings.EqualFold(userType, "tenant") {
+		var tenantRentalAddress Address
+		for _, user := range userList {
+			if strings.EqualFold(user.Email, email) {
+				tenantRentalAddress = user.RentalAddress
+				break
+			}
+		}
+
+		var found bool
+		for _, user := range userList {
+			found = false
+			if len(user.OwnedPropertyAddressList) > 0 {
+				for _, address := range user.OwnedPropertyAddressList {
+					if strings.EqualFold(address.AddressID, tenantRentalAddress.AddressID) {
+						found = true
+						break
+					}
+				}
+			}
+			if found {
+				serviceRequestList = user.ServiceRequestList
+			}
+		}
+	} else if strings.EqualFold(userType, "landlord") {
+		for i, user := range userList {
+			if strings.EqualFold(user.Email, email) {
+				serviceRequestList = userList[i].ServiceRequestList
+			}
+		}
+	}
+
+	bytes, err := json.Marshal(serviceRequestList)
+	if err != nil {
+		return &appError{err, "Getting service request list failed. Server down. Please contact customer support or try again later", "Failed to marshal response body", 500}
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(200)
+	resp.Write(bytes)
+
+	logger(nil, resp, req)
+	return nil
+}
+
+func updateServiceRequest(resp http.ResponseWriter, req *http.Request) *appError {
+
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
+	if err != nil {
+		return &appError{err, "Sending service request failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
+	}
+
+	userList, email, err := getUserListFromDatabaseAndUserEmail(claims)
+	if err != nil {
+		return &appError{err, "Sending service request failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
+	}
+
+	var updateServiceReqObj ServiceRequest
+	err = readReqBody(req, &updateServiceReqObj)
+	if err != nil {
+		return &appError{err, "Sending service request failed. Please contact customer support or try again later.", "Failed to read request", 500}
+	}
+
+	for i, user := range userList {
+		if strings.EqualFold(user.Email, email) {
+			for j, req := range user.ServiceRequestList {
+				fmt.Printf("%v\n", updateServiceReqObj)
+				if strings.EqualFold(req.RequestID, updateServiceReqObj.RequestID) {
+					fmt.Println("found the service request")
+					userList[i].ServiceRequestList[j] = updateServiceReqObj
+					break
+				}
+			}
+			break
+		}
+	}
+
+	err = updateUserDatabase(userList)
+	if err != nil {
+		return &appError{err, "Sending service request failed. Server down. Please contact customer support or try again later.", "Failed to update database", 500}
+	}
+
+	logger(nil, resp, req)
+	return nil
+}
+
+func createServiceRequest(message string, addressID string, tenantName string) ServiceRequest {
+	//need to add function to create Service request
+	var serviceReq ServiceRequest
+	serviceReq.Status = "open"
+	serviceReq.RequestID = uuid.New().String()
+	now := time.Now()
+	secs := now.Unix()
+	serviceReq.RequestTime = strconv.FormatInt(secs, 10)
+	serviceReq.StartTime = ""
+	serviceReq.CompletedTime = ""
+	serviceReq.Message = message
+	serviceReq.RentalAddressID = addressID
+	serviceReq.TenantName = tenantName
+
+	return serviceReq
+}
+
+func sendServiceRequest(resp http.ResponseWriter, req *http.Request) *appError {
+	type ReqService struct {
+		Message       string
+		TenantName    string
+		RentalAddress Address
+	}
+
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
+	if err != nil {
+		return &appError{err, "Sending service request failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
+	}
+
+	userList, _, err := getUserListFromDatabaseAndUserEmail(claims)
+	if err != nil {
+		return &appError{err, "Sending service request failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
+	}
+
+	var reqService ReqService
+	err = readReqBody(req, &reqService)
+	if err != nil {
+		return &appError{err, "Sending service request failed. Please contact customer support or try again later.", "Failed to read request", 500}
+	}
+
+	serviceReq := createServiceRequest(reqService.Message, reqService.RentalAddress.AddressID, reqService.TenantName)
+
+	var foundLandLord bool
+	for i, user := range userList {
+		foundLandLord = false
+		if len(user.OwnedPropertyAddressList) > 0 {
+			for _, address := range user.OwnedPropertyAddressList {
+				if strings.EqualFold(address.AddressID, serviceReq.RentalAddressID) {
+					foundLandLord = true
+					break
+				}
+			}
+		}
+		if foundLandLord {
+			userList[i].ServiceRequestList = append([]ServiceRequest{serviceReq}, userList[i].ServiceRequestList...)
+			break
+		}
+	}
+
+	err = updateUserDatabase(userList)
+	if err != nil {
+		return &appError{err, "Sending service request failed. Server down. Please contact customer support or try again later.", "Failed to update database", 500}
+	}
+
+	logger(nil, resp, req)
+	return nil
+}
+
+func sendNotification(resp http.ResponseWriter, req *http.Request) *appError {
+
+	type ReqNotification struct {
+		Message     string
+		AddressList []string
+	}
+
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
+	if err != nil {
+		return &appError{err, "Sending notification failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
+	}
+
+	userList, _, err := getUserListFromDatabaseAndUserEmail(claims)
+	if err != nil {
+		return &appError{err, "Sending notification failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
+	}
+
+	var reqNotification ReqNotification
+	err = readReqBody(req, &reqNotification)
+	if err != nil {
+		return &appError{err, "Sending notification property failed. Please contact customer support or try again later.", "Failed to read request", 500}
+	}
+
+	//need to add function to create notification
+	var notification Notification
+	notification.Message = reqNotification.Message
+	notification.From = "Jason"
+	now := time.Now()
+	secs := now.Unix()
+	notification.CreatedOn = strconv.FormatInt(secs, 10)
+	notification.NotificationID = uuid.New().String()
+
+	for _, reqAddress := range reqNotification.AddressList {
+		for i, user := range userList {
+			if strings.EqualFold(reqAddress, user.RentalAddress.AddressID) {
+				userList[i].NotificationList = append([]Notification{notification}, userList[i].NotificationList...)
+				break
+			}
+		}
+	}
+
+	err = updateUserDatabase(userList)
+	if err != nil {
+		return &appError{err, "Sending notification failed. Server down. Please contact customer support or try again later.", "Failed to update database", 500}
+	}
+
+	logger(nil, resp, req)
+	return nil
+}
+
+func getUserFromDataBase(claims jwt.MapClaims) (User, error) {
+
+	var email string
+	for k, v := range claims {
+		if strings.EqualFold(k, "email") {
+			email = v.(string)
+		}
+	}
+
 	var userList []User
+	var theUser User
 
 	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
 	if err != nil {
-		altLogger(err.Error())
+		return theUser, err
 	}
+
 	json.Unmarshal(bytes, &userList)
-
-	//kvs := map[string]string{"Alan Ayala": "kanonbolt128@gmail.com", "Laura Smith": "smithlaura9295@gmail.com"}
-	kvs := map[string]string{"Alan Ayala": "jasonykwon91@gmail.com", "Laura Smith": "jasonykwon91@gmail.com"}
-
-	t := time.Now()
-	year := strconv.Itoa(t.Year())
-	month := t.Month().String()
-	day := strconv.Itoa(t.Day())
-	theDate := month + " " + day + " " + year
-
-	for name, tenantEmail := range kvs {
-		m := gomail.NewMessage()
-		m.Embed("/home/jkwon/Git/project/signature.jpg")
-		m.SetHeader("From", string(email))
-		m.SetHeader("To", tenantEmail)
-		m.SetHeader("Subject", "Rent Receipt for " + month + " " + year)
-		m.SetBody("text/html",`
-			<table width='600' style='border:1px solid #333'
-			<tbody>
-				<tr><td align='left'><b>Transaction number:</b>1234-5678-1234-5678</td></tr>
-				<tr><td align='left'><b>Name:</b> ` + name + `</td></tr>
-				<tr><td align='left'><b>Date:</b> ` + theDate + `</td></tr>
-				<tr><td align='left'><b>Transaction Type:</b> Cash</td></tr>
-				<tr>
-					<td align='center'>
-						<table align='center' width='300' border='0' cellspacing='0' cellpadding='0' style='border:1px solid #ccc; padding:10px 0px 10px 10px'>
-							<tr>
-								<td><b>Amount Due:</b></td>
-								<td>$550</td>
-							</tr>
-							<tr>
-								<td><b>Amount Paid:</b></td>
-								<td>$550</td>
-							</tr>
-							<tr>
-								<td><b>Received by:</b></td>
-								<td>Jason Kwon</td>
-							</tr>
-							<tr>
-								<td><b>Signature:</b></td>
-								<td><img src='cid:signature.jpg' alt='My Image' style='max-width: 100px; max-height: 100px' /></td>
-							</tr>
-						</table>
-				</tr>
-				<br>
-			</tbody>`)
-
-
-		d := gomail.NewDialer("smtp.gmail.com", 587, string(email), string(emailPass))
-
-		// Send the email to Bob, Cora and Dan.
-		if err := d.DialAndSend(m); err != nil {
-			altLogger(err.Error())
+	for _, user := range userList {
+		if strings.EqualFold(email, user.Email) {
+			theUser = user
+			break
 		}
 	}
+
+	return theUser, nil
+}
+
+func getCurrentUser(resp http.ResponseWriter, req *http.Request) *appError {
+
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
+	if err != nil {
+		return &appError{err, "Getting current user failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
+	}
+
+	currentUser, err := getUserFromDataBase(claims)
+	currentUser.Password = nil
+	if err != nil {
+		return &appError{err, "Getting current user failed. Server down. Please contact customer support or try again later.", "Failed to get current user", 500}
+	}
+
+	bytes, err := json.Marshal(currentUser)
+	if err != nil {
+		return &appError{err, "Getting current user failed. Server down. Please contact customer support or try again later", "Failed to marshal response body", 500}
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(200)
+	resp.Write(bytes)
+
+	logger(nil, resp, req)
+	return nil
 }
 
 func getUserListFromDatabaseAndUserEmail(claims jwt.MapClaims) ([]User, string, error) {
@@ -368,44 +555,70 @@ func updateUserDatabase(data []User) error {
 	return nil
 }
 
+func getAllLandLordProperties(resp http.ResponseWriter, req *http.Request) *appError {
+
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
+	if err != nil {
+		return &appError{err, "Getting all landlord properties failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
+	}
+
+	userList, email, err := getUserListFromDatabaseAndUserEmail(claims)
+	if err != nil {
+		return &appError{err, "Getting all landlord properties failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
+	}
+
+	var addressList []Address
+	for _, user := range userList {
+		if strings.EqualFold(user.Email, email) {
+			addressList = user.OwnedPropertyAddressList
+			break
+		}
+	}
+
+	bytes, err := json.Marshal(addressList)
+	if err != nil {
+		return &appError{err, "Getting all landlord properties failed. Server down. Please contact customer support or try again later", "Failed to marshal response body", 500}
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(200)
+	resp.Write(bytes)
+
+	logger(nil, resp, req)
+	return nil
+}
+
 func registerLandlordProperty(resp http.ResponseWriter, req *http.Request) *appError {
 
-	token, err := jwt.Parse(req.Header.Get("Authorization"), func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Failed to authenticate user")
-		}
-		return tokenPass, nil
-	})
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
 	if err != nil {
 		return &appError{err, "Registering landlord property failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+	var address Address
+	err = readReqBody(req, &address)
+	if err != nil {
+		return &appError{err, "Registering landlord property failed. Please contact customer support or try again later.", "Failed to read request", 500}
+	}
 
-		var address Address
-		err := readReqBody(req, &address)
-		if err != nil {
-			return &appError{err, "Registering landlord property failed. Please contact customer support or try again later.", "Failed to read request", 500}
+	address.AddressID = uuid.New().String()
+	address.PropertyType = "rental"
+
+	userList, email, err := getUserListFromDatabaseAndUserEmail(claims)
+	if err != nil {
+		return &appError{err, "Registering landlord property failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
+	}
+
+	for i, user := range userList {
+		if strings.EqualFold(user.Email, email) {
+			userList[i].OwnedPropertyAddressList = append(userList[i].OwnedPropertyAddressList, address)
+			break
 		}
+	}
 
-		userList, email, err := getUserListFromDatabaseAndUserEmail(claims)
-		if err != nil {
-			return &appError{err, "Registering landlord property failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
-		}
-
-		for i, user := range userList {
-			if strings.EqualFold(user.Email, email) {
-				userList[i].OwnedPropertyAddressList = append(userList[i].OwnedPropertyAddressList, address)
-			}
-		}
-
-		err = updateUserDatabase(userList)
-		if err != nil {
-			return &appError{err, "Registering landlord property failed. Server down. Please contact customer support or try again later.", "Failed to update database", 500}
-		}
-
-	} else {
-		return &appError{errors.New("Failed to authenticate user"), "Registering landlord property failed. Server down. Please contact customer support or try again later", "Failed to authenticate user", 403}
+	err = updateUserDatabase(userList)
+	if err != nil {
+		return &appError{err, "Registering landlord property failed. Server down. Please contact customer support or try again later.", "Failed to update database", 500}
 	}
 
 	logger(nil, resp, req)
@@ -414,9 +627,9 @@ func registerLandlordProperty(resp http.ResponseWriter, req *http.Request) *appE
 
 func getStateList(resp http.ResponseWriter, req *http.Request) *appError {
 	type State struct {
-		id int
+		id    int
 		value string
-		name string
+		name  string
 	}
 	var stateList []State
 
@@ -435,51 +648,32 @@ func getStateList(resp http.ResponseWriter, req *http.Request) *appError {
 }
 
 func getAllNotifications(resp http.ResponseWriter, req *http.Request) *appError {
-	token, err := jwt.Parse(req.Header.Get("Authorization"), func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Failed to authenticate user")
-		}
-		return tokenPass, nil
-	})
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
 	if err != nil {
 		return &appError{err, "Getting notifications failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-
-		var email string
-		for k, v := range claims {
-			if strings.EqualFold(k, "email") {
-				email = v.(string)
-			}
-		}
-
-		var userList []User
-
-		bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
-		if err != nil {
-			return &appError{err, "Getting notifications failed. Server down. Please contact customer support or try again later.", "Failed to read database file", 500}
-		}
-		json.Unmarshal(bytes, &userList)
-
-		var notificationList []Notification
-		for _, user := range userList {
-			if strings.EqualFold(user.Email, email) {
-				notificationList = user.NotificationList
-			}
-		}
-
-		bytes, err = json.Marshal(notificationList)
-		if err != nil {
-			return &appError{err, "Getting notifications failed. Server down. Please contact customer support or try again later", "Failed to marshal response body", 500}
-		}
-
-		resp.Header().Set("Content-Type", "application/json")
-		resp.WriteHeader(200)
-		resp.Write(bytes)
-	} else {
-		return &appError{errors.New("Failed to authenticate user"), "Get notifications failed. Server down. Please contact customer support or try again later", "Failed to authenticate user", 403}
+	userList, email, err := getUserListFromDatabaseAndUserEmail(claims)
+	if err != nil {
+		return &appError{err, "Getting notifications failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
 	}
+
+	var notificationList []Notification
+	for _, user := range userList {
+		if strings.EqualFold(user.Email, email) {
+			notificationList = user.NotificationList
+			break
+		}
+	}
+
+	bytes, err := json.Marshal(notificationList)
+	if err != nil {
+		return &appError{err, "Getting notifications failed. Server down. Please contact customer support or try again later", "Failed to marshal response body", 500}
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(200)
+	resp.Write(bytes)
 
 	logger(nil, resp, req)
 	return nil
@@ -492,20 +686,20 @@ func registerUser(resp http.ResponseWriter, req *http.Request) *appError {
 	var rentalAdd Address
 	type SelectObj struct {
 		Value string
-		Id int64
+		Id    int64
 	}
 
 	type ReqBody struct {
-		FirstName string
-		LastName  string
-		Password  string
-		Email string
-		RentalAddress SelectObj
-		BillingStreet string
-		BillingCity string
+		FirstName      string
+		LastName       string
+		Password       string
+		Email          string
+		RentalAddress  SelectObj
+		BillingStreet  string
+		BillingCity    string
 		BillingZipcode string
-		BillingState SelectObj
-		PhoneNumber string
+		BillingState   SelectObj
+		PhoneNumber    string
 	}
 	var reqBody ReqBody
 
@@ -525,7 +719,7 @@ func registerUser(resp http.ResponseWriter, req *http.Request) *appError {
 	user.FirstName = reqBody.FirstName
 	user.LastName = reqBody.LastName
 	user.UserType = "tenant"
-	user.RentalHomeAddress = rentalAdd
+	user.RentalAddress = rentalAdd
 	user.BillingAddress.Street = reqBody.BillingStreet
 	user.BillingAddress.Zipcode = reqBody.BillingZipcode
 	user.BillingAddress.City = reqBody.BillingCity
@@ -576,7 +770,7 @@ func registerUser(resp http.ResponseWriter, req *http.Request) *appError {
 	return nil
 }
 
-func compareUsers (a User, b User) bool {
+func compareUsers(a User, b User) bool {
 	if a.Email == b.Email {
 		return true
 	} else {
@@ -590,7 +784,7 @@ func authenticateUser(resp http.ResponseWriter, req *http.Request) *appError {
 	var userList []User
 	type ReqBody struct {
 		Password string
-		Email string
+		Email    string
 	}
 
 	var reqBody ReqBody
@@ -608,11 +802,12 @@ func authenticateUser(resp http.ResponseWriter, req *http.Request) *appError {
 	found := false
 	for _, user := range userList {
 		if strings.EqualFold(user.Email, reqBody.Email) {
-			if err := bcrypt.CompareHashAndPassword(user.Password, []byte(reqBody.Password)); err!= nil {
+			if err := bcrypt.CompareHashAndPassword(user.Password, []byte(reqBody.Password)); err != nil {
 				return &appError{err, "Login failed. Wrong password was entered. Contact customer support for forgotten password", "Wrong password", 403}
 			}
 			found = true
 			userObj = user
+			break
 		}
 	}
 
@@ -621,8 +816,7 @@ func authenticateUser(resp http.ResponseWriter, req *http.Request) *appError {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email": userObj.Email,
-		"password": userObj.Password,
+		"email":    userObj.Email,
 		"userType": userObj.UserType,
 	})
 
@@ -638,15 +832,25 @@ func authenticateUser(resp http.ResponseWriter, req *http.Request) *appError {
 	}
 	json.Unmarshal(bytes, &tokenList)
 
-	tokenList = append(tokenList, tokenString)
-	bytes, err = json.Marshal(tokenList)
-	if err != nil {
-		return &appError{err, "Login failed. Please contact customer support or try again later.", "Failed to marshal json", 500}
+	found = false
+	for _, tokenObj := range tokenList {
+		if strings.EqualFold(tokenObj, tokenString) {
+			found = true
+			break
+		}
 	}
 
-	err = ioutil.WriteFile("/home/jkwon/Git/project/database/Tokens", bytes, 0644)
-	if err != nil {
-		return &appError{err, "Registration failed. Please contact customer support or try again later.", "Failed to write new user to file", 500}
+	if !found {
+		tokenList = append(tokenList, tokenString)
+		bytes, err = json.Marshal(tokenList)
+		if err != nil {
+			return &appError{err, "Login failed. Please contact customer support or try again later.", "Failed to marshal json", 500}
+		}
+
+		err = ioutil.WriteFile("/home/jkwon/Git/project/database/Tokens", bytes, 0644)
+		if err != nil {
+			return &appError{err, "Login failed. Please contact customer support or try again later.", "Failed to write token to file", 500}
+		}
 	}
 
 	json.NewEncoder(resp).Encode(JwtToken{Token: tokenString, UserType: userObj.UserType})
@@ -657,59 +861,49 @@ func authenticateUser(resp http.ResponseWriter, req *http.Request) *appError {
 
 func getAllUsers(resp http.ResponseWriter, req *http.Request) *appError {
 
-	token, err := jwt.Parse(req.Header.Get("Authorization"), func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Failed to authenticate user")
-		}
-		return tokenPass, nil
-	})
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
 	if err != nil {
 		return &appError{err, "Getting all users failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-
-		var userType string
-		for k, v := range claims {
-			if strings.EqualFold(k, "userType") {
-				userType = v.(string)
-			}
+	var userType string
+	for k, v := range claims {
+		if strings.EqualFold(k, "userType") {
+			userType = v.(string)
 		}
-
-		if !strings.EqualFold(userType, "landlord") {
-			return &appError{errors.New("Forbidden"), "Getting all users failed. You do not have permission to view this content.", "Forbidden", 403}
-		}
-		var userList []User
-
-		type RespBody struct {
-			FirstName string
-			LastName string
-			Email string
-		}
-		var respBody []RespBody
-
-		bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
-		if err != nil {
-			return &appError{err, "Getting all users failed. Server down. Please contact customer support or try again later.", "Failed to read database file", 500}
-		}
-		json.Unmarshal(bytes, &userList)
-
-		for _, user := range userList {
-			tmpUser := RespBody{FirstName: user.FirstName, LastName: user.LastName, Email: user.Email}
-			respBody = append(respBody, tmpUser)
-		}
-
-		bytes, err = json.Marshal(respBody)
-		if err != nil {
-			return &appError{err, "Getting all users failed. Server down. Please contact customer support or try again later", "Failed to marshal response body", 500}
-		}
-
-		resp.Header().Set("Content-Type", "application/json")
-		resp.WriteHeader(200)
-		resp.Write(bytes)
-	} else {
-		return &appError{errors.New("Failed to authenticate user"), "Get all users failed. Server down. Please contact customer support or try again later", "Failed to authenticate user", 403}
 	}
+
+	if !strings.EqualFold(userType, "landlord") {
+		return &appError{errors.New("Forbidden"), "Getting all users failed. You do not have permission to view this content.", "Forbidden", 403}
+	}
+	var userList []User
+
+	type RespBody struct {
+		FirstName string
+		LastName  string
+		Email     string
+	}
+	var respBody []RespBody
+
+	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
+	if err != nil {
+		return &appError{err, "Getting all users failed. Server down. Please contact customer support or try again later.", "Failed to read database file", 500}
+	}
+	json.Unmarshal(bytes, &userList)
+
+	for _, user := range userList {
+		tmpUser := RespBody{FirstName: user.FirstName, LastName: user.LastName, Email: user.Email}
+		respBody = append(respBody, tmpUser)
+	}
+
+	bytes, err = json.Marshal(respBody)
+	if err != nil {
+		return &appError{err, "Getting all users failed. Server down. Please contact customer support or try again later", "Failed to marshal response body", 500}
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(200)
+	resp.Write(bytes)
 
 	logger(nil, resp, req)
 	return nil
@@ -745,4 +939,121 @@ func readRespBody(responseObj *http.Response, resultObj interface{}) error {
 	}
 
 	return nil
+}
+
+func emailRentDueNotification() {
+	email, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmail")
+	if err != nil {
+		altLogger(err.Error())
+	}
+
+	emailPass, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmailPass")
+	if err != nil {
+		altLogger(err.Error())
+	}
+	var userList []User
+
+	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
+	if err != nil {
+		altLogger(err.Error())
+	}
+	json.Unmarshal(bytes, &userList)
+
+	//kvs := map[string]string{"Alan Ayala": "kanonbolt128@gmail.com", "Laura Smith": "smithlaura9295@gmail.com"}
+	kvs := map[string]string{"Alan Ayala": "jasonykwon91@gmail.com", "Laura Smith": "jasonykwon91@gmail.com"}
+
+	t := time.Now()
+	year := strconv.Itoa(t.Year())
+	month := t.Month().String()
+	day := strconv.Itoa(t.Day())
+	theDate := month + " " + day + " " + year
+
+	for name, tenantEmail := range kvs {
+		m := gomail.NewMessage()
+		m.SetHeader("From", string(email))
+		m.SetHeader("To", tenantEmail)
+		m.SetHeader("Subject", "Rent due for "+month+" "+year)
+		m.SetBody("text/html", `<p><b>Hi `+name+`</b></p><br><p>This is a reminder that rent is due today(`+theDate+`)</p>`)
+
+		d := gomail.NewDialer("smtp.gmail.com", 587, string(email), string(emailPass))
+
+		// Send the email to Bob, Cora and Dan.
+		if err := d.DialAndSend(m); err != nil {
+			altLogger(err.Error())
+		}
+	}
+}
+
+func emailReceipts() {
+
+	email, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmail")
+	if err != nil {
+		altLogger(err.Error())
+	}
+
+	emailPass, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmailPass")
+	if err != nil {
+		altLogger(err.Error())
+	}
+	var userList []User
+
+	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
+	if err != nil {
+		altLogger(err.Error())
+	}
+	json.Unmarshal(bytes, &userList)
+
+	//kvs := map[string]string{"Alan Ayala": "kanonbolt128@gmail.com", "Laura Smith": "smithlaura9295@gmail.com"}
+	kvs := map[string]string{"Alan Ayala": "jasonykwon91@gmail.com", "Laura Smith": "jasonykwon91@gmail.com"}
+
+	t := time.Now()
+	year := strconv.Itoa(t.Year())
+	month := t.Month().String()
+	day := strconv.Itoa(t.Day())
+	theDate := month + " " + day + " " + year
+
+	for name, tenantEmail := range kvs {
+		m := gomail.NewMessage()
+		m.Embed("/home/jkwon/Git/project/signature.jpg")
+		m.SetHeader("From", string(email))
+		m.SetHeader("To", tenantEmail)
+		m.SetHeader("Subject", "Rent Receipt for "+month+" "+year)
+		m.SetBody("text/html", `
+			<table width='600' style='border:1px solid #333'
+			<tbody>
+				<tr><td align='left'><b>Transaction number:</b>1234-5678-1234-5678</td></tr>
+				<tr><td align='left'><b>Name:</b> `+name+`</td></tr>
+				<tr><td align='left'><b>Date:</b> `+theDate+`</td></tr>
+				<tr><td align='left'><b>Transaction Type:</b> Cash</td></tr>
+				<tr>
+					<td align='center'>
+						<table align='center' width='300' border='0' cellspacing='0' cellpadding='0' style='border:1px solid #ccc; padding:10px 0px 10px 10px'>
+							<tr>
+								<td><b>Amount Due:</b></td>
+								<td>$550</td>
+							</tr>
+							<tr>
+								<td><b>Amount Paid:</b></td>
+								<td>$550</td>
+							</tr>
+							<tr>
+								<td><b>Received by:</b></td>
+								<td>Jason Kwon</td>
+							</tr>
+							<tr>
+								<td><b>Signature:</b></td>
+								<td><img src='cid:signature.jpg' alt='My Image' style='max-width: 100px; max-height: 100px' /></td>
+							</tr>
+						</table>
+				</tr>
+				<br>
+			</tbody>`)
+
+		d := gomail.NewDialer("smtp.gmail.com", 587, string(email), string(emailPass))
+
+		// Send the email to Bob, Cora and Dan.
+		if err := d.DialAndSend(m); err != nil {
+			altLogger(err.Error())
+		}
+	}
 }
