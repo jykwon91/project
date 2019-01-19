@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { connect } from 'react-redux';
-import { FormGroup, FormControl, ControlLabel, Navbar } from 'react-bootstrap';
-import { ListGroup, ListGroupItem, ListGroupItemHeading, ListGroupItemText, ButtonGroup, Button } from 'reactstrap';
+import { FormGroup, FormControl, ControlLabel, Navbar, PanelGroup, Panel } from 'react-bootstrap';
+import { Dropdown, DropdownToggle, DropdownMenu, DropdownItem, ListGroup, ListGroupItem, ListGroupItemHeading, ListGroupItemText, ButtonGroup, Button } from 'reactstrap';
 import { Container, Col, Row } from 'reactstrap';
 
 import { userActions } from '../_actions';
@@ -20,15 +20,21 @@ class LandLordPage extends React.Component {
 				},
 				landLordPropertyList: [{}],
 				serviceRequestList: [{}],
+				tenantList: [{}],
 				currentUser: {},
 				selectedProperty: '',
 				addressList: [{}],
+				selectedOPL: {},
+				showOPL: false,
+				dropdownOpen: false,
 				fields: {},
 				errors: {}
 			}
 
 			this.handleChange = this.handleChange.bind(this);
 			this.handleSubmit = this.handleSubmit.bind(this);
+			this.handleClickOPL = this.handleClickOPL.bind(this);
+			this.handleOutsideClickOPL = this.handleOutsideClickOPL.bind(this);
 		}
 
 		static getDerivedStateFromProps(props, state) {
@@ -47,6 +53,12 @@ class LandLordPage extends React.Component {
 			if (props.serviceRequestList !== state.serviceRequestList) {
 				return {
 					serviceRequestList: props.serviceRequestList
+				};
+			}
+
+			if (props.tenantList !== state.tenantList) {
+				return {
+					tenantList: props.tenantList
 				};
 			}
 
@@ -84,6 +96,44 @@ class LandLordPage extends React.Component {
 			});
 		}
 
+		dropDownOPL = () => {
+			console.log(this.props.tenantList);
+			this.setState(prevState => ({
+				showOPL: !prevState.showOPL
+			}))
+		}
+
+		selectOPL = (tenant, property, index) => {
+			tenant.RentalAddress = property
+			this.setState(prevState => ({
+				selectedOPL: property,
+				showOPL: false
+			}))
+
+			const newTenantList = this.props.tenantList;
+			newTenantList.items[index].RentalAddress = property;
+			this.setState(prevState => ({ tenantList: newTenantList}))
+
+			this.props.dispatch(userActions.updateUser(tenant));
+		}
+
+		handleClickOPL() {
+			if (!this.state.showOPL) {
+				document.addEventListener('click', this.handleOutsideClickOPL, false);
+			} else {
+				document.removeEventListener('click', this.handleOutsideClickOPL, false);
+			}
+
+			this.setState({showOPL: !this.state.showOPL});
+		}
+
+		handleOutsideClickOPL(e) {
+			if (this.OPLNode.contains(e.target)) {
+				return;
+			}
+			this.handleClickOPL();
+		}
+
 		handleSubmit(event) {
 			event.preventDefault();
 			event.target.reset();
@@ -116,8 +166,10 @@ class LandLordPage extends React.Component {
 				this.props.dispatch(userActions.getAllLandLordProperties());
 				this.props.dispatch(userActions.getCurrentUser());
 				this.props.dispatch(userActions.getServiceRequestList());
+				this.props.dispatch(userActions.getTenantList());
 				setInterval(() => {
 					this.props.dispatch(userActions.getServiceRequestList());
+					//this.props.dispatch(userActions.getTenantList());
 				}, 5000);
     }
 
@@ -160,7 +212,7 @@ class LandLordPage extends React.Component {
 		}
 
     render() {
-        const { user, users, submitted, landLordPropertyList, currentUser, addressList, serviceRequestList } = this.props;
+        const { user, users, submitted, landLordPropertyList, currentUser, addressList, serviceRequestList, tenantList } = this.props;
 				const { notification } = this.state;
         return (
             <div>
@@ -199,22 +251,47 @@ class LandLordPage extends React.Component {
 										</div>
 									</div>
 									<div className="col-xs-6 col-sm-4">
-										<p>All registered users:</p>
-										{users.loading && <em>Loading users...</em>}
-										{users.error && <span className="text-danger">ERROR: {users.error}</span>}
-										{users.items &&
-												<ul>
-														{users.items.map((user, index) =>
-																<li key={index}>
-																		{user.FirstName + ' ' + user.LastName}
-																		{
-																				user.deleting ? <em> - Deleting...</em>
-																				: user.deleteError ? <span className="text-danger"> - ERROR: {user.deleteError}</span>
-																				: <span> - <a onClick={this.handleDeleteUser(user.id)}>Delete</a></span>
+										<p>Current Tenants:</p>
+										{tenantList.loading && <em>Loading tenants...</em>}
+										{tenantList.error && <span className="text-danger">ERROR: {tenantList.error}</span>}
+										{tenantList.items &&
+											<PanelGroup accordion id="accordion-example">
+												{tenantList.items.map((tenant, tIndex) =>
+													<Panel key={tIndex} eventKey={tIndex} bsStyle={ (tenant.RentalAddress.Street !== "") ? 'primary' : 'danger'}>
+														<Panel.Heading>
+															<Panel.Title toggle> {tenant.FirstName + ' ' + tenant.LastName}</Panel.Title>
+														</Panel.Heading>
+														<Panel.Body collapsible>
+															<p><small>Email: {tenant.Email}</small></p>
+															<p><small>Phone Number: {tenant.PhoneNumber}</small></p>
+															<p><small>Address: { (tenant.RentalAddress.Street !== "") ? tenant.RentalAddress.Street + ' ' + tenant.RentalAddress.City + ' ' + tenant.RentalAddress.Zipcode + ' ' + tenant.RentalAddress.State : 'Address unassigned'}</small></p>
+															<div className="select-box--box" ref={OPLNode => this.OPLNode = OPLNode}>
+																<div className="select-box--container" onClick={this.handleClickOPL}>
+																	<div className="select-box--select-item" onClick={this.dropDownOPL}>
+																		{ (tenant.RentalAddress.Street !== "") ? tenant.RentalAddress.Street + ' ' + tenant.RentalAddress.City + ' ' + tenant.RentalAddress.Zipcode + ' ' + tenant.RentalAddress.State : 'Address unassigned'}
+																	</div>
+																	<div className="select-box--arrow" onClick={this.dropDownOPL}>
+																		<span className={`${this.state.showOPL ? 'select-box--arrow-up' : 'select-box--arrow-down'}`}/>
+																	</div>
+																	<div 
+																		style={{display: this.state.showOPL ? 'block' : 'none', maxHeight: '500px', overflow: 'scroll'}} 
+																		className="select-box--items">
+																		{	currentUser.items &&
+																			currentUser.items.OwnedPropertyAddressList.map((property, index) => <div
+																				key={property.AddressID}
+																				onClick={() => this.selectOPL(tenant, property, tIndex)}
+																				className={this.state.selectedOPL === property ? 'selected' : ''}
+																			>
+																				{property.Street + ' ' + property.City + ' ' + property.Zipcode + ' ' + property.State}
+																</div>)
 																		}
-																</li>
-														)}
-												</ul>
+																	</div>
+																</div>
+															</div>
+														</Panel.Body>
+													</Panel>
+												)}
+											</PanelGroup>
 										}
 									</div>
 									<div className="col-xs-6 col-sm-4">
@@ -224,6 +301,7 @@ class LandLordPage extends React.Component {
 											<ListGroup style={{overflow: "scroll", height: "400px", width: "100%"}}>
 												{serviceRequestList.items.map((serviceReq, index) =>
 													<ListGroupItem key={index} color={(serviceReq.Status === 'processing') ? 'warning' : (serviceReq.Status === 'completed') ? 'success' : (serviceReq.Status === 'open') ? 'info' : 'danger'}>
+														<ListGroupItemHeading>{serviceReq.RentalAddress.Street + ' ' + serviceReq.RentalAddress.City + ' ' + serviceReq.RentalAddress.Zipcode + ' ' + serviceReq.RentalAddress.State}</ListGroupItemHeading>
 														<ListGroupItemHeading>{this.convertEpochTime(serviceReq.RequestTime)}</ListGroupItemHeading>
 														<ListGroupItemText style={{overflowWrap: "break-word"}}>{serviceReq.Message}</ListGroupItemText>
 														<ButtonGroup size="sm">
@@ -246,7 +324,7 @@ class LandLordPage extends React.Component {
 }
 
 function mapStateToProps(state) {
-    const { users, notification, authentication, landLordPropertyList, currentUser, serviceRequestList } = state;
+    const { users, notification, authentication, landLordPropertyList, currentUser, serviceRequestList, tenantList } = state;
     const { user } = authentication;
     return {
         user,
@@ -255,8 +333,23 @@ function mapStateToProps(state) {
 				landLordPropertyList,
 				currentUser,
 				serviceRequestList,
+				tenantList,
     };
 }
 
 const connectedLandLordPage = connect(mapStateToProps)(LandLordPage);
 export { connectedLandLordPage as LandLordPage };
+/*
+												<ul>
+														{tenantList.items.map((tenant, index) =>
+																<li key={index}>
+																		{tenant.FirstName + ' ' + tenant.LastName}
+																		{
+																				tenant.deleting ? <em> - Deleting...</em>
+																				: tenant.deleteError ? <span className="text-danger"> - ERROR: {tenant.deleteError}</span>
+																				: <span> - <a onClick={this.handleDeleteUser(tenant.id)}>Delete</a></span>
+																		}
+																</li>
+														)}
+												</ul>
+*/

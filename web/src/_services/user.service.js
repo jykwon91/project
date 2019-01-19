@@ -12,9 +12,12 @@ export const userService = {
 		getCurrentUser,
 		getStateList,
 		getServiceRequestList,
+		getLandLordList,
 		sendNotification,
 		sendServiceReq,
 		updateServiceReq,
+		updateUser,
+		getTenantList,
     //delete: _delete
 };
 
@@ -119,6 +122,28 @@ function getStateList() {
 	return fetch("http://rentalmgmt.co:8000/stateList", requestOptions).then(handleResponse);
 }
 
+function getLandLordList() {
+	const requestOptions = {
+		method: 'GET',
+		mode: 'cors',
+		headers: {'Content-Type': 'application/json'},
+	};
+
+	//return fetch("http://10.0.0.152:8000/stateList", requestOptions).then(handleResponse);
+	return fetch("http://rentalmgmt.co:8000/users/landlord/all", requestOptions).then(handleResponse);
+}
+
+function getTenantList() {
+	const requestOptions = {
+		method: 'GET',
+		mode: 'cors',
+		headers: authHeader(),
+	};
+
+	//return fetch("http://10.0.0.152:8000/stateList", requestOptions).then(handleResponse);
+	return fetch("http://rentalmgmt.co:8000/landlord/tenant/all", requestOptions).then(handleResponse);
+}
+
 function register(user) {
     const requestOptions = {
         method: 'POST',
@@ -183,8 +208,20 @@ function updateServiceReq(serviceReq) {
     return fetch("http://rentalmgmt.co:8000/landlord/service/request/update", requestOptions).then(handleResponse);
 }
 
+function updateUser(user) {
+    const requestOptions = {
+        method: 'POST',
+        //headers: { 'Content-Type': 'application/json' },
+        headers: authHeader(),
+        body: JSON.stringify(user)
+    };
+
+    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
+    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
+    return fetch("http://rentalmgmt.co:8000/users/update", requestOptions).then(handleResponse);
+}
+
 function handleResponse(response) {
-		console.log(response);
     return response.text().then(text => {
         const data = text && JSON.parse(text);
         if (!response.ok) {

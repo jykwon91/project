@@ -12,6 +12,9 @@ import { sendNotification } from './sendNotification.reducer';
 import { sendServiceReq } from './sendServiceReq.reducer';
 import { serviceRequestList } from './serviceRequestList.reducer';
 import { updateServiceReq } from './updateServiceReq.reducer';
+import { landLordList } from './landLordList.reducer';
+import { tenantList } from './tenantList.reducer';
+import { updateUser } from './updateUser.reducer';
 import { alert } from './alert.reducer';
 
 const rootReducer = combineReducers({
@@ -27,6 +30,9 @@ const rootReducer = combineReducers({
 	sendServiceReq,
 	serviceRequestList,
 	updateServiceReq,
+	landLordList,
+	tenantList,
+	updateUser,
   alert
 });
 

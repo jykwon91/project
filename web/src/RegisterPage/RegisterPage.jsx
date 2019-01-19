@@ -3,6 +3,7 @@ import './styles.css'
 import { Link } from 'react-router-dom';
 import { connect } from 'react-redux';
 
+import CurrencyInput from 'react-currency-input';
 import { userActions } from '../_actions';
 
 class RegisterPage extends React.Component {
@@ -16,18 +17,19 @@ class RegisterPage extends React.Component {
                 password: '',
 								email: '',
 								phoneNumber: '',
-								rentalAddress: '',
+								landLord: '',
 								billingStreet: '',
 								billingCity: '',
 								billingZipcode: '',
 								billingState: '',
+								rentalPaymentAmt: '',
             },
             submitted: false,
-						rentalAddressList: [{value:'6738 Peerless St, Houston, TX, 77021', id:1}, {value:'Hello World', id:2}],
-						showRentalAddressList: false,
-						selectedRentalAddress: {value:'Select Home/Apt Address', id:99999},
+						selectedLandLord: {Name: 'Select your land lord', LandLordID:99999},
 						stateList: props.stateList,
+						landLordList: props.landLordList,
 						showStateList: false,
+						showLandLordList: false,
 						selectedState: {value:'Select State', id:99999},
 						fields: {},
 						errors: {}
@@ -35,22 +37,24 @@ class RegisterPage extends React.Component {
 
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
-				this.handleClick = this.handleClick.bind(this);
-				this.handleOutsideClick = this.handleOutsideClick.bind(this);
+				this.handleClickSL = this.handleClickSL.bind(this);
+				this.handleOutsideClickSL = this.handleOutsideClickSL.bind(this);
+				this.handleClickLLL = this.handleClickLLL.bind(this);
+				this.handleOutsideClickLLL = this.handleOutsideClickLLL.bind(this);
     }
 
-		dropDownRentalAddress = () => {
+		dropDownLandLordList = () => {
 			this.setState(prevState => ({
-				showRentalAddressList: !prevState.showRentalAddressList
+				showLandLordList: !prevState.showLandLordList
 			}))
 		}
 		
-		selectRentalAddress = (address) => this.setState(prevState => ({
-			selectedRentalAddress: address,
-			showRentalAddressList: false,
+		selectLandLord = (landLord) => this.setState(prevState => ({
+			selectedLandLord: landLord,
+			showLandLordList: false,
 			user: {
 				...prevState.user,
-				rentalAddress: address
+				landLord: landLord
 			}
 		}))
 
@@ -75,45 +79,55 @@ class RegisterPage extends React.Component {
 					stateList: props.stateList
 				};
 			}
+
+			if (props.landLordList !== state.landLordList) {
+				return {
+					landLordList: props.landLordList
+				};
+			};
+
 			return null;
 		}
 
 		componentDidMount() {
 			this.props.dispatch(userActions.getStateList());
+			this.props.dispatch(userActions.getLandLordList());
 		}
 
-/*
-		handleClick = (e) => {
-			if (this.node.contains(e.target)) {
-				this.setState({
-					showStateList: false
-				})
-				return;
-			} else if (this.tempnode.contains(e.target)) {
-				this.setState({
-					showRentalAddressList: false
-				})
-				return;
-			}
-			this.handleClickOutside();
-		}
-*/
-		handleClick() {
+		handleClickSL() {
 			if (!this.state.showStateList) {
-				document.addEventListener('click', this.handleOutsideClick, false);
+				document.addEventListener('click', this.handleOutsideClickSL, false);
 			} else {
-				document.removeEventListener('click', this.handleOutsideClick, false);
+				document.removeEventListener('click', this.handleOutsideClickSL, false);
 			}
 
 			this.setState({ showStateList: !this.state.showStateList});
 		}
 
-		handleOutsideClick() {
-			if (this.node.contains(e.target)) {
+		handleOutsideClickSL(e) {
+			if (this.SLNode.contains(e.target)) {
 				return;
 			}
 
-			this.handleClick();
+			this.handleClickSL();
+		}
+
+		handleClickLLL() {
+			if (!this.state.showLandLordList) {
+				document.addEventListener('click', this.handleOutsideClickLLL, false);
+			} else {
+				document.removeEventListener('click', this.handleOutsideClickLLL, false);
+			}
+
+			this.setState({ showLandLordList: !this.state.showLandLordList});
+		}
+
+		handleOutsideClickLLL(e) {
+			if (this.LLLNode.contains(e.target)) {
+				return;
+			}
+
+			this.handleClickLLL();
 		}
 
     handleChange(field, event) {
@@ -135,12 +149,13 @@ class RegisterPage extends React.Component {
     handleSubmit(event) {
         event.preventDefault();
 
+				console.log(this.state.user);
         this.setState({ submitted: true });
         const { user } = this.state;
         const { dispatch } = this.props;
 
-        if (this.handleValidation() && user.firstName && user.lastName && user.password && user.email && user.rentalAddress && user.billingStreet && user.billingCity && user.billingZipcode && user.billingState) {
-            dispatch(userActions.register(user));
+        if (this.handleValidation() && user.firstName && user.lastName && user.password && user.email && user.landLord && user.billingStreet && user.billingCity && user.billingZipcode && user.billingState) {
+					dispatch(userActions.register(user));
         }
     }
 
@@ -172,6 +187,19 @@ class RegisterPage extends React.Component {
 				if (!fields["billingZipcode"].match(/^[0-9]+$/)) {
 					formIsValid = false;
 					errors["billingZipcode"] = "Zipcode can only consist of numbers(0-9)";
+				}
+			}
+
+			//rentalPaymentAmt
+			if (!fields["rentalPaymentAmt"]) {
+				formIsValid = false;
+				errors["rentalPaymentAmt"] = "Monthly rental payment is required";
+			}
+
+			if (typeof fields["rentalPaymentAmt"] !== "undefined") {
+				if (fields["rentalPaymentAmt"] >= 0) {
+					formIsValid = false;
+					errors["rentalPaymentAmt"] = "Monthly rental payment is required";
 				}
 			}
 
@@ -222,40 +250,51 @@ class RegisterPage extends React.Component {
 		}
 
     render() {
-        const { registering, stateList } = this.props;
+        const { registering, stateList, landLordList } = this.props;
         const { user, submitted } = this.state;
         return (
             <div className="col-md-10 col-md-offset-1">
                 <h2>Register</h2>
                 <form name="form" onSubmit={this.handleSubmit}>
-                    <div className={'form-group' + (submitted && this.state.errors["firstName"] ? ' has-error' : '')}>
-                        <label htmlFor="firstName">First Name</label>
-                        <input type="text" className="form-control" name="firstName" value={user.firstName} onChange={this.handleChange.bind(this, "firstName")} />
-                        <div className="help-block">{this.state.errors["firstName"]}</div>
-                    </div>
-                    <div className={'form-group' + (submitted && this.state.errors["lastName"] ? ' has-error' : '')}>
-                        <label htmlFor="lastName">Last Name</label>
-                        <input type="text" className="form-control" name="lastName" value={user.lastName} onChange={this.handleChange.bind(this, "lastName")} />
-                        <div className="help-block">{this.state.errors["lastName"]}</div>
-                    </div>
-                    <div className={'form-group' + (submitted && !user.password ? ' has-error' : '')}>
-                        <label htmlFor="password">Password</label>
-                        <input type="password" className="form-control" name="password" value={user.password} onChange={this.handleChange.bind(this, "password")} />
-                        {submitted && !user.password &&
-                            <div className="help-block">Password is required</div>
-                        }
-                    </div>
-                    <div className={'form-group' + (submitted && this.state.errors["email"] ? ' has-error' : '')}>
-                        <label htmlFor="email">Email</label>
-                        <input type="text" className="form-control" name="email" value={user.email} onChange={this.handleChange.bind(this, "email")} />
-                        <div className="help-block">{this.state.errors["email"]}</div>
-                    </div>
-                    <div className={'form-group' + (submitted && this.state.errors["phoneNumber"] ? ' has-error' : '')}>
-                        <label htmlFor="phoneNumber">Phone Number</label>
-                        <input type="tel" className="form-control" name="phoneNumber" value={user.phoneNumber} onChange={this.handleChange.bind(this, "phoneNumber")} maxLength="10" />
-                        <div className="help-block">{this.state.errors["phoneNumber"]}</div>
-                    </div>
-
+									<div className="row">
+										<div className="col-xs-6">
+											<div className={'form-group' + (submitted && this.state.errors["firstName"] ? ' has-error' : '')}>
+													<label htmlFor="firstName">First Name</label>
+													<input type="text" className="form-control" name="firstName" value={user.firstName} onChange={this.handleChange.bind(this, "firstName")} />
+													<div className="help-block">{this.state.errors["firstName"]}</div>
+											</div>
+										</div>
+										<div className="col-xs-6">
+											<div className={'form-group' + (submitted && this.state.errors["lastName"] ? ' has-error' : '')}>
+													<label htmlFor="lastName">Last Name</label>
+													<input type="text" className="form-control" name="lastName" value={user.lastName} onChange={this.handleChange.bind(this, "lastName")} />
+													<div className="help-block">{this.state.errors["lastName"]}</div>
+											</div>
+										</div>
+										<div className="col-xs-6">
+											<div className={'form-group' + (submitted && !user.password ? ' has-error' : '')}>
+													<label htmlFor="password">Password</label>
+													<input type="password" className="form-control" name="password" value={user.password} onChange={this.handleChange.bind(this, "password")} />
+													{submitted && !user.password &&
+															<div className="help-block">Password is required</div>
+													}
+											</div>
+										</div>
+										<div className="col-xs-6">
+											<div className={'form-group' + (submitted && this.state.errors["email"] ? ' has-error' : '')}>
+													<label htmlFor="email">Email</label>
+													<input type="text" className="form-control" name="email" value={user.email} onChange={this.handleChange.bind(this, "email")} />
+													<div className="help-block">{this.state.errors["email"]}</div>
+											</div>
+										</div>
+										<div className="col-xs-6">
+											<div className={'form-group' + (submitted && this.state.errors["phoneNumber"] ? ' has-error' : '')}>
+													<label htmlFor="phoneNumber">Phone Number</label>
+													<input type="tel" className="form-control" name="phoneNumber" value={user.phoneNumber} onChange={this.handleChange.bind(this, "phoneNumber")} maxLength="10" />
+													<div className="help-block">{this.state.errors["phoneNumber"]}</div>
+											</div>
+										</div>
+									</div>
 
 
                 		<h3>Billing Address</h3>
@@ -287,9 +326,9 @@ class RegisterPage extends React.Component {
 											</div>
 											<div className="col-xs-6">
                         <label htmlFor="billingState">State</label>
-                    		<div className={'form-group' + (submitted && !user.billingState ? ' has-error' : '')} ref={tempnode => this.tempnode = tempnode}>
+                    		<div className={'form-group' + (submitted && !user.billingState ? ' has-error' : '')} ref={SLNode => this.SLNode = SLNode}>
 													<div className="select-box--box" style={{width: this.state.width || "150px"}}>
-														<div className="select-box--container">
+														<div className="select-box--container" onClick={this.handleClickSL}>
 															<div
 																className="select-box--selected-item"
 																onClick={this.dropDownStates}
@@ -327,46 +366,60 @@ class RegisterPage extends React.Component {
 													</div>
 												</div>
 											</div>
+											<div className="col-xs-6">
+
+											</div>
 										</div>
 
-                    <div className={'form-group' + (submitted && !user.rentalAddress ? ' has-error' : '')} ref={node => this.node = node}>
-                      <label htmlFor="rentalAddress">Rental Address</label>
-											<div className="select-box--box" style={{width: this.state.width || "100%"}}>
-												<div className="select-box--container">
-													<div
-														className="select-box--selected-item"
-														onClick={this.dropDownRentalAddress}
-													> { this.state.selectedRentalAddress.value }
-													</div>
-													<div 
-														className="select-box--arrow"
-														onClick={this.dropDownRentalAddress}>
-															<span className={`${this.state.showRentalAddressList ? 'select-box--arrow-up' : 'select-box--arrow-down'}`}/>
-													</div>
-													<div 
-														style={{display: this.state.showRentalAddressList ? 'block' : 'none'}} 
-														className="select-box--items"
-													>
-													{
-														this.state.rentalAddressList.map(address => <div 
-															key={ address.id } 
-															onClick={() => this.selectRentalAddress(address)} 
-															className={this.state.selectedRentalAddress === address ? 'selected' : ''}
-														>
-															{ address.value }
-														</div>)
-													}
+										<div className="row">
+											<div className="col-xs-6">
+												<div className={'form-group' + (submitted && !user.landLord ? ' has-error' : '')}  ref={LLLNode => this.LLLNode = LLLNode}>
+													<label htmlFor="landLord">Land Lord List:</label>
+													<div className="select-box--box" style={{width: this.state.width || "100%"}}>
+														<div className="select-box--container" onClick={this.handleClickLLL}>
+															<div
+																className="select-box--selected-item"
+																onClick={this.dropDownLandLordList}
+															> { this.state.selectedLandLord.Name}
+															</div>
+															<div 
+																className="select-box--arrow"
+																onClick={this.dropDownLandLordList}>
+																	<span className={`${this.state.showLandLordList ? 'select-box--arrow-up' : 'select-box--arrow-down'}`}/>
+															</div>
+															<div 
+																style={{display: this.state.showLandLordList ? 'block' : 'none'}} 
+																className="select-box--items"
+															>
+															{ this.state.landLordList.items &&
+																this.state.landLordList.items.map(landLord => <div 
+																	key={landLord.LandLordID} 
+																	onClick={() => this.selectLandLord(landLord)} 
+																	className={this.state.selectedLandLord === landLord ? 'selected' : ''}
+																>
+																	{ landLord.Name }
+																</div>)
+															}
+															</div>
+														</div>
+														<input
+															type="hidden"
+															value={user.landLord}
+															name="landLord"
+															onChange={this.handleChange.bind(this, "landLord")}
+														/>
+														{submitted && !user.landLord &&
+															<div className="help-block"> Need to select a land lord</div>
+														}
 													</div>
 												</div>
-												<input
-													type="hidden"
-													value={user.rentalAddress}
-													name="rentalAddress"
-													onChange={this.handleChange.bind(this, "rentalAddress")}
-												/>
-												{submitted && !user.rentalAddress &&
-													<div className="help-block"> Rental address is required</div>
-												}
+											</div>
+											<div className="col-xs-6">
+												<div className={'form-group' + (submitted && this.state.errors["rentalPaymentAmt"] ? ' has-error' : '')} style={{width: "200px"}}>
+													<label htmlFor="rentalPaymentAmt">Rental Payment Amount</label>
+													<CurrencyInput inputType="text" prefix="$" name="rentalPaymentAmt" value={user.rentalPaymentAmt} onChangeEvent={this.handleChange.bind(this, "rentalPaymentAmt")} style={{hidden: true}}/>
+													<div className="help-block">{this.state.errors["rentalPaymentAmt"]}</div>
+												</div>
 											</div>
 										</div>
 
@@ -385,11 +438,11 @@ class RegisterPage extends React.Component {
 
 function mapStateToProps(state) {
     const { registering } = state.registration;
-		const { rentalAddresses, stateList } = state;
+		const { stateList, landLordList } = state;
     return {
         registering,
-				rentalAddresses,
-				stateList
+				stateList,
+				landLordList,
     };
 }
 
