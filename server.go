@@ -28,6 +28,9 @@ const (
 	TENANT = "tenant"
 	RENT = "rent"
 	PAID = "paid"
+	OPEN = "open"
+	PROCESSING = "processing"
+	LATE = "late"
 )
 
 type User struct {
@@ -43,8 +46,9 @@ type User struct {
 	ServiceRequestList       []ServiceRequest
 	NotificationList         []Notification
 	LandLordID                 string
-	RentalPaymentAmt            string
+	RentalPaymentAmt            int64
 	RentDueDate       string //epoch
+	LateFeeRate string //in percentage maybe make this an int
 	LegalDocuments           []Document
 	Email                    string
 	PhoneNumber              string
@@ -89,14 +93,18 @@ type Document struct {
 
 // could this be tied to Document
 type Payment struct {
+	PaymentID string
 	LandLordID string
 	TenantID string
 	BTTransactionID string
-	PaymentCategory   string //rent, service, etc
+	Category   string //rent, service, repairs, utility, etc
 	PaymentMethod string
-	Amount        string
-	Status string
+	Amount        int64 //cents
+	LateFeeAmount	int64 //cents
+	Status string //open, processing, paid, late
 	PaidDate string
+	DueDate string
+	Description string
 }
 
 type JwtToken struct {
@@ -192,8 +200,39 @@ var tokenPass []byte
 
 func DailyTaskExec() {
 	for t := range time.NewTicker(86400 * time.Second).C {
-		if t.Day() == 1 {
-			emailRentDueNotification()
+	//for t := range time.NewTicker(8 * time.Second).C {
+		fmt.Println(t)
+
+		userList, err := getUserListFromDatabase()
+		if err != nil {
+			altLogger(err.Error())
+		}
+
+		for _, user := range userList {
+			//if strings.EqualFold(user.UserType, TENANT) && (t.Day() == user.RentDueDate) {
+			if strings.EqualFold(user.UserType, TENANT) {
+				now := time.Now()
+				secs := now.Unix()
+				dueDate := strconv.FormatInt(secs, 10)
+				description := "Pay period " + now.Month().String() + " " + strconv.Itoa(now.Year())
+
+				//TODO: Need to redo how I add payments. currently adding to only landlord payment list
+				// too confusing to keep track of
+				payment := Payment{ PaymentID: uuid.New().String(), LandLordID: user.LandLordID, TenantID: user.UserID, BTTransactionID: "", Category: RENT, PaymentMethod: "", Status: OPEN, Amount: user.RentalPaymentAmt, PaidDate: "", DueDate: dueDate, Description: description}
+
+				for i, tmpUser := range userList {
+					if strings.EqualFold(tmpUser.UserID, user.LandLordID) {
+						userList[i].PaymentList = append(userList[i].PaymentList, payment)
+					}
+				}
+
+				//emailRentDueNotification(user.email or user)
+			}
+		}
+
+		err = updateUserDatabase(userList)
+		if err != nil {
+			altLogger(err.Error())
 		}
 	}
 }
@@ -218,6 +257,7 @@ func main() {
 	router.Handle("/users/service/all", appHandler(getServiceRequestList))
 	router.Handle("/users/currentUser", appHandler(getCurrentUser))
 	router.Handle("/users/update", appHandler(updateUser))
+	router.Handle("/users/payment/all", appHandler(getPaymentList))
 
 	router.Handle("/stateList", appHandler(getStateList))
 	router.Handle("/users/landlord/property/register", appHandler(registerLandlordProperty))
@@ -227,6 +267,7 @@ func main() {
 	router.Handle("/landlord/tenant/all", appHandler(getTenantList))
 	router.Handle("/tenant/service/request", appHandler(sendServiceRequest))
 	router.Handle("/tenant/pay/{tokenKey}", appHandler(tenantPayment))
+	router.Handle("/tenant/payment/overview/{landLordID}", appHandler(getPaymentOverview))
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost", "http://localhost:8080", "http://192.168.1.125", "http://192.168.1.125:8080", "http://rentalmgmt.co:8080", "http://rentalmgmt.co"},
@@ -259,6 +300,133 @@ func authenticateTokenAndReturnClaims(tokenString string) (jwt.MapClaims, error)
 	}
 
 	return nil, fmt.Errorf("Failed to authenticate user")
+}
+
+func getPaymentOverview(resp http.ResponseWriter, req *http.Request) *appError {
+
+	vars := mux.Vars(req)
+	landLordID := vars["landLordID"]
+	type PaymentOverview struct {
+		CurrentPayPeriod string
+		CurrentAmountDue int64
+		TotalLateAmount int64
+		TotalLateFees int64
+		TotalDue int64
+	}
+
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
+	if err != nil {
+		return &appError{err, "Getting payment overview failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
+	}
+
+	userList, email, err := getUserListFromDatabaseAndUserEmail(claims)
+	if err != nil {
+		return &appError{err, "Getting payment overview failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
+	}
+
+	var tenantID string
+	for _, user := range userList {
+		if strings.EqualFold(user.Email, email) {
+			tenantID = user.UserID
+			break
+		}
+	}
+
+	var paymentOverview PaymentOverview
+	now := time.Now()
+	for _, user := range userList {
+		if strings.EqualFold(user.UserID, landLordID) {
+			for _, payment := range user.PaymentList {
+				if !strings.EqualFold(payment.Status, PAID) && strings.EqualFold(payment.TenantID, tenantID) {
+					epoch, err := strconv.ParseInt(payment.DueDate, 10, 64)
+					if err != nil {
+						return &appError{err, "Getting payment overview failed. Server down. Please contact customer support or try again later.", "Failed to convert epoch", 500}
+					}
+					date := time.Unix(epoch, 0)
+					if date.Month() == now.Month() {
+						paymentOverview.CurrentPayPeriod = now.Month().String() + " " + strconv.Itoa(now.Year())
+						paymentOverview.CurrentAmountDue = paymentOverview.CurrentAmountDue + payment.Amount
+						paymentOverview.TotalDue = paymentOverview.TotalDue + payment.Amount
+					} else if strings.EqualFold(payment.Status, LATE) {
+						paymentOverview.TotalLateAmount = paymentOverview.TotalLateAmount + payment.Amount
+						paymentOverview.TotalLateFees = paymentOverview.TotalLateFees + payment.LateFeeAmount
+						paymentOverview.TotalDue = paymentOverview.TotalDue + payment.Amount + payment.LateFeeAmount
+					}
+				}
+			}
+		}
+	}
+
+	bytes, err := json.Marshal(paymentOverview)
+	if err != nil {
+		return &appError{err, "Getting payment overview failed. Server down. Please contact customer support or try again later", "Failed to marshal response body", 500}
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(200)
+	resp.Write(bytes)
+
+	logger(nil, resp, req)
+	return nil
+}
+func getPaymentList(resp http.ResponseWriter, req *http.Request) *appError {
+
+	claims, err := authenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
+	if err != nil {
+		return &appError{err, "Getting payment list failed. Server down. Please contact customer support or try again later.", "Failed to authenticate user", 403}
+	}
+
+	var userType string
+	for k, v := range claims {
+		if strings.EqualFold(k, "userType") {
+			userType = v.(string)
+		}
+	}
+
+	userList, email, err := getUserListFromDatabaseAndUserEmail(claims)
+	if err != nil {
+		return &appError{err, "Getting payment list failed. Server down. Please contact customer support or try again later.", "Failed to get user list", 500}
+	}
+
+	var paymentList []Payment
+	var tenantID string
+	var landLordID string
+
+	for _, user := range userList {
+		if strings.EqualFold(userType, TENANT) && strings.EqualFold(user.Email, email) {
+			tenantID = user.UserID
+			landLordID = user.LandLordID
+			break
+		} else if strings.EqualFold(userType, LANDLORD) && strings.EqualFold(user.Email, email) {
+			paymentList = user.PaymentList
+			break
+		}
+	}
+
+	if strings.EqualFold(userType, TENANT) {
+		for _, user := range userList {
+			if strings.EqualFold(user.UserID, landLordID) {
+				for _, payment := range user.PaymentList {
+					if strings.EqualFold(payment.TenantID, tenantID) {
+						paymentList = append(paymentList, payment)
+					}
+				}
+				break
+			}
+		}
+	}
+
+	bytes, err := json.Marshal(paymentList)
+	if err != nil {
+		return &appError{err, "Getting service request list failed. Server down. Please contact customer support or try again later", "Failed to marshal response body", 500}
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(200)
+	resp.Write(bytes)
+
+	logger(nil, resp, req)
+	return nil
 }
 
 func getLandLordList(resp http.ResponseWriter, req *http.Request) *appError {
@@ -302,9 +470,10 @@ func tenantPayment(resp http.ResponseWriter, req *http.Request) *appError {
 	vars := mux.Vars(req)
 	tokenKey := vars["tokenKey"]
 	type ReqBody struct {
+		PaymentID string
 		LandLordID string
 		TenantID string
-		RentalPaymentAmt string
+		Amount int64
 	}
 
 	var reqBody ReqBody
@@ -323,14 +492,15 @@ func tenantPayment(resp http.ResponseWriter, req *http.Request) *appError {
 	ctx := context.Background()
 	t, err := bt.Transaction().Create(ctx, &braintree.TransactionRequest{
 		Type: "sale",
-		Amount: braintree.NewDecimal(500, 2), // $5.00
+		Amount: braintree.NewDecimal(reqBody.Amount, 2), // $5.00
 		PaymentMethodNonce: tokenKey,
 	})
 	if err != nil {
 		return &appError{err, "Payment failed. Server down. Please contact customer support or try again later.", "Payment failed", 403}
 	}
 
-	err = createPayment(reqBody.LandLordID, reqBody.TenantID, reqBody.RentalPaymentAmt, t.Id, string(t.PaymentInstrumentType), RENT, "paid")
+
+	err = updatePayment(reqBody.PaymentID, reqBody.LandLordID, reqBody.TenantID, reqBody.Amount, t.Id, string(t.PaymentInstrumentType))
 	if err != nil {
 		return &appError{err, "Creating payment history failed. Server down. Please contact customer support or try again later.", "Creating Payment failed", 500}
 	}
@@ -339,7 +509,42 @@ func tenantPayment(resp http.ResponseWriter, req *http.Request) *appError {
 	return nil
 }
 
-func createPayment( landLordID string, tenantID string, amount string, btTransactionID string, paymentMethod string, paymentCategory string, status string) error {
+func updatePayment(paymentID string, landLordID string, tenantID string, amount int64, btTransactionID string, paymentMethod string) error {
+	userList, err := getUserListFromDatabase()
+	if err != nil {
+		return err
+	}
+
+	for i, user := range userList {
+		if strings.EqualFold(user.UserID, landLordID) {
+			for j, payment := range user.PaymentList {
+				if strings.EqualFold(paymentID, payment.PaymentID) {
+					if amount == payment.Amount {
+						now := time.Now()
+						secs := now.Unix()
+						date := strconv.FormatInt(secs, 10)
+						userList[i].PaymentList[j].Status = PAID
+						userList[i].PaymentList[j].PaidDate = date
+					} else {
+						userList[i].PaymentList[j].Amount = userList[i].PaymentList[j].Amount - amount
+					}
+					userList[i].PaymentList[j].BTTransactionID = btTransactionID
+					userList[i].PaymentList[j].PaymentMethod = paymentMethod
+				}
+			}
+		}
+	}
+
+	err = updateUserDatabase(userList)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// change this to update payment
+func createPayment( landLordID string, tenantID string, amount int64, btTransactionID string, paymentMethod string, category string, status string) error {
 
 	date := ""
 	if strings.EqualFold(PAID, status) {
@@ -348,8 +553,7 @@ func createPayment( landLordID string, tenantID string, amount string, btTransac
 		date = strconv.FormatInt(secs, 10)
 	}
 
-	payment := Payment{ LandLordID: landLordID, TenantID: tenantID, BTTransactionID: btTransactionID, PaymentCategory: paymentCategory, PaymentMethod: paymentMethod, Status: status, Amount: amount, PaidDate: date}
-	fmt.Printf("%v\n", payment)
+	payment := Payment{ LandLordID: landLordID, TenantID: tenantID, BTTransactionID: btTransactionID, Category: category, PaymentMethod: paymentMethod, Status: status, Amount: amount, PaidDate: date}
 
 	userList, err := getUserListFromDatabase()
 	if err != nil {
@@ -915,7 +1119,7 @@ func registerUser(resp http.ResponseWriter, req *http.Request) *appError {
 		BillingZipcode string
 		BillingState   SelectObj
 		PhoneNumber    string
-		RentalPaymentAmt string
+		RentalPaymentAmt int64
 	}
 
 	var reqBody ReqBody
