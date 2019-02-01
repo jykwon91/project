@@ -20,6 +20,7 @@ class LandLordPage extends React.Component {
 				},
 				landLordPropertyList: [{}],
 				serviceRequestList: [{}],
+				paymentList: [{}],
 				tenantList: [{}],
 				currentUser: {},
 				selectedProperty: '',
@@ -59,6 +60,12 @@ class LandLordPage extends React.Component {
 			if (props.tenantList !== state.tenantList) {
 				return {
 					tenantList: props.tenantList
+				};
+			}
+
+			if (props.paymentList !== state.paymentList) {
+				return {
+					paymentList: props.paymentList
 				};
 			}
 
@@ -167,6 +174,7 @@ class LandLordPage extends React.Component {
 				this.props.dispatch(userActions.getCurrentUser());
 				this.props.dispatch(userActions.getServiceRequestList());
 				this.props.dispatch(userActions.getTenantList());
+				this.props.dispatch(userActions.getPaymentList());
 				setInterval(() => {
 					this.props.dispatch(userActions.getServiceRequestList());
 					//this.props.dispatch(userActions.getTenantList());
@@ -212,13 +220,27 @@ class LandLordPage extends React.Component {
 		}
 
     render() {
-        const { user, users, submitted, landLordPropertyList, currentUser, addressList, serviceRequestList, tenantList } = this.props;
+        const { user, users, submitted, landLordPropertyList, currentUser, addressList, serviceRequestList, tenantList, paymentList } = this.props;
 				const { notification } = this.state;
         return (
             <div>
 							<form onSubmit={this.handleSubmit.bind(this)}>
 								<div className="row">
 									<div className="col-xs-6 col-sm-4">
+										<p>Payment history:</p>
+										{paymentList.loading && <em>Loading Payment List...</em>}
+										{paymentList.error && <span className="text-danger">ERROR: {paymentList.error}</span>}
+										{paymentList.items &&
+											<ListGroup style={{overflow: "scroll", height: "300px", width: "100%"}}>
+												{paymentList.items.map((payment, index) =>
+													<ListGroupItem key={index}>
+														<ListGroupItemHeading>{payment.PaidDate}</ListGroupItemHeading>
+														<ListGroupItemHeading>From: {payment.Amount}</ListGroupItemHeading>
+														<ListGroupItemText>{payment.Category}</ListGroupItemText>
+													</ListGroupItem>
+												)}
+											</ListGroup>
+										}
 										<FormGroup controlId="formMessage">
 											<ControlLabel>Please enter the notification message:</ControlLabel>
 											<FormControl type="text" name="Message" value={notification.Message} componentClass="textarea" onChange={this.handleChange.bind(this, "Message")} placeholder="Enter Message..." style={{height: "100px", resize: "none"}}/>
@@ -324,7 +346,7 @@ class LandLordPage extends React.Component {
 }
 
 function mapStateToProps(state) {
-    const { users, notification, authentication, landLordPropertyList, currentUser, serviceRequestList, tenantList } = state;
+    const { users, notification, authentication, landLordPropertyList, currentUser, serviceRequestList, tenantList, paymentList } = state;
     const { user } = authentication;
     return {
         user,
@@ -334,6 +356,7 @@ function mapStateToProps(state) {
 				currentUser,
 				serviceRequestList,
 				tenantList,
+				paymentList,
     };
 }
 

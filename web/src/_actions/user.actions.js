@@ -20,6 +20,9 @@ export const userActions = {
 		updateServiceReq,
 		updateUser,
 		getTenantList,
+		getPaymentList,
+		payment,
+		getPaymentOverview,
     delete: _delete
 };
 
@@ -52,6 +55,20 @@ function login(email, password) {
 function logout() {
     userService.logout();
     return { type: userConstants.LOGOUT };
+}
+
+function payment(error) {
+	return dispatch => {
+		if (!error) {
+			dispatch(success());
+			dispatch(alertActions.success('Payment posted and will begin processing'));
+		} else if (error) {
+			dispatch(failure(error.message));
+			dispatch(alertActions.error(error.message));
+		}
+	}
+	function success() { return { type: userConstants.POST_PAYMENT_SUCCESS } }
+	function failure(error) { return { type: userConstants.POST_PAYMENT_FAILURE, error } }
 }
 
 function register(user) {
@@ -310,6 +327,34 @@ function updateUser(user) {
     function request(user) { return { type: userConstants.UPDATE_USER_REQUEST, user } }
     function success(user) { return { type: userConstants.UPDATE_USER_SUCCESS, user } }
     function failure(error) { return { type: userConstants.UPDATE_USER_FAILURE, error } }
+}
+
+function getPaymentList() {
+    return dispatch => {
+        userService.getPaymentList()
+            .then(
+                paymentList => dispatch(success(paymentList)),
+                error => dispatch(failure(error.toString()))
+            );
+    };
+
+    function request() { return { type: userConstants.GET_PAYMENT_LIST_REQUEST } }
+    function success(paymentList) { return { type: userConstants.GET_PAYMENT_LIST_SUCCESS, paymentList } }
+    function failure(error) { return { type: userConstants.GET_PAYMENT_LIST_FAILURE, error } }
+}
+
+function getPaymentOverview(landLordID) {
+    return dispatch => {
+        userService.getPaymentOverview(landLordID)
+            .then(
+                paymentOverview => dispatch(success(paymentOverview)),
+                error => dispatch(failure(error.toString()))
+            );
+    };
+
+    function request() { return { type: userConstants.GET_PAYMENT_OVERVIEW_REQUEST } }
+    function success(paymentOverview) { return { type: userConstants.GET_PAYMENT_OVERVIEW_SUCCESS, paymentOverview } }
+    function failure(error) { return { type: userConstants.GET_PAYMENT_OVERVIEW_FAILURE, error } }
 }
 
 // prefixed function name with underscore because delete is a reserved word in javascript

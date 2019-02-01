@@ -15,6 +15,9 @@ import { updateServiceReq } from './updateServiceReq.reducer';
 import { landLordList } from './landLordList.reducer';
 import { tenantList } from './tenantList.reducer';
 import { updateUser } from './updateUser.reducer';
+import { paymentList } from './paymentList.reducer';
+import { payment } from './payment.reducer';
+import { paymentOverview } from './paymentOverview.reducer';
 import { alert } from './alert.reducer';
 
 const rootReducer = combineReducers({
@@ -33,6 +36,9 @@ const rootReducer = combineReducers({
 	landLordList,
 	tenantList,
 	updateUser,
+	paymentList,
+	payment,
+	paymentOverview,
   alert
 });
 
