@@ -20,8 +20,15 @@ export const userService = {
 		getTenantList,
 		getPaymentList,
 		getPaymentOverview,
+		updatePayment,
     //delete: _delete
 };
+
+//production
+//const apiUrl = "http://rentalmgmt.co:8080";
+
+//dev
+const apiUrl = "http://10.0.0.152:8080";
 
 function login(email, password) {
 
@@ -37,9 +44,8 @@ function login(email, password) {
         body: JSON.stringify({ email, password })
     };
 
-    //return fetch(`${config.apiurl}/users/authenticate`, requestOptions)
-    //return fetch("http://10.0.0.152:8000/users/authenticate", requestOptions)
-    return fetch("http://rentalmgmt.co:8000/users/authenticate", requestOptions)
+    //return fetch("http://rentalmgmt.co:8000/users/authenticate", requestOptions)
+    return fetch(apiUrl + "/users/authenticate", requestOptions)
         .then(handleResponse)
         .then(user => {
             // login successful if there's a jwt token in the response
@@ -64,9 +70,8 @@ function getAll() {
         headers: authHeader()
     };
 
-    //return fetch(`${config.apiUrl}/users`, requestOptions).then(handleResponse);
-    //return fetch("http://10.0.0.152:8000/users/all", requestOptions).then(handleResponse);
-    return fetch("http://rentalmgmt.co:8000/users/all", requestOptions).then(handleResponse);
+    //return fetch("http://rentalmgmt.co:8000/users/all", requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/users/all", requestOptions).then(handleResponse);
 }
 
 function getAllNotifications() {
@@ -76,8 +81,8 @@ function getAllNotifications() {
 		headers: authHeader()
 	};
 
-	//return fetch("http://10.0.0.152:8000/users/notification/all", requestOptions).then(handleResponse);
-	return fetch("http://rentalmgmt.co:8000/users/notification/all", requestOptions).then(handleResponse);
+	//return fetch("http://rentalmgmt.co:8000/users/notification/all", requestOptions).then(handleResponse);
+	return fetch(apiUrl + "/users/notification/all", requestOptions).then(handleResponse);
 }
 
 function getServiceRequestList() {
@@ -87,8 +92,7 @@ function getServiceRequestList() {
 		headers: authHeader()
 	};
 
-	//return fetch("http://10.0.0.152:8000/users/notification/all", requestOptions).then(handleResponse);
-	return fetch("http://rentalmgmt.co:8000/users/service/all", requestOptions).then(handleResponse);
+	return fetch(apiUrl + "/users/service/all", requestOptions).then(handleResponse);
 }
 
 function getAllLandLordProperties() {
@@ -98,8 +102,7 @@ function getAllLandLordProperties() {
 		headers: authHeader()
 	};
 
-	//return fetch("http://10.0.0.152:8000/users/notification/all", requestOptions).then(handleResponse);
-	return fetch("http://rentalmgmt.co:8000/landlord/property/all", requestOptions).then(handleResponse);
+	return fetch(apiUrl + "/landlord/property/all", requestOptions).then(handleResponse);
 }
 
 function getCurrentUser() {
@@ -109,8 +112,7 @@ function getCurrentUser() {
 		headers: authHeader()
 	};
 
-	//return fetch("http://10.0.0.152:8000/users/notification/all", requestOptions).then(handleResponse);
-	return fetch("http://rentalmgmt.co:8000/users/currentUser", requestOptions).then(handleResponse);
+	return fetch(apiUrl + "/users/currentUser", requestOptions).then(handleResponse);
 }
 
 function getStateList() {
@@ -120,8 +122,8 @@ function getStateList() {
 		headers: {'Content-Type': 'application/json'},
 	};
 
-	//return fetch("http://10.0.0.152:8000/stateList", requestOptions).then(handleResponse);
-	return fetch("http://rentalmgmt.co:8000/stateList", requestOptions).then(handleResponse);
+	//return fetch("http://rentalmgmt.co:8000/stateList", requestOptions).then(handleResponse);
+	return fetch(apiUrl + "/stateList", requestOptions).then(handleResponse);
 }
 
 function getLandLordList() {
@@ -131,8 +133,8 @@ function getLandLordList() {
 		headers: {'Content-Type': 'application/json'},
 	};
 
-	//return fetch("http://10.0.0.152:8000/stateList", requestOptions).then(handleResponse);
-	return fetch("http://rentalmgmt.co:8000/users/landlord/all", requestOptions).then(handleResponse);
+	//return fetch("http://rentalmgmt.co:8000/users/landlord/all", requestOptions).then(handleResponse);
+	return fetch(apiUrl + "/users/landlord/all", requestOptions).then(handleResponse);
 }
 
 function getTenantList() {
@@ -142,8 +144,8 @@ function getTenantList() {
 		headers: authHeader(),
 	};
 
-	//return fetch("http://10.0.0.152:8000/stateList", requestOptions).then(handleResponse);
-	return fetch("http://rentalmgmt.co:8000/landlord/tenant/all", requestOptions).then(handleResponse);
+	//return fetch("http://rentalmgmt.co:8000/landlord/tenant/all", requestOptions).then(handleResponse);
+	return fetch(apiUrl + "/landlord/tenant/all", requestOptions).then(handleResponse);
 }
 
 function register(user) {
@@ -153,9 +155,8 @@ function register(user) {
         body: JSON.stringify(user)
     };
 
-    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
-    return fetch("http://rentalmgmt.co:8000/users/register", requestOptions).then(handleResponse);
+    //return fetch("http://rentalmgmt.co:8000/users/register", requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/users/register", requestOptions).then(handleResponse);
 }
 
 function registerLandLordProperty(address) {
@@ -165,9 +166,8 @@ function registerLandLordProperty(address) {
         body: JSON.stringify(address)
     };
 
-    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
-    return fetch("http://rentalmgmt.co:8000/users/landlord/property/register", requestOptions).then(handleResponse);
+    //return fetch("http://rentalmgmt.co:8000/users/landlord/property/register", requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/users/landlord/property/register", requestOptions).then(handleResponse);
 }
 
 function sendNotification(notification) {
@@ -177,9 +177,8 @@ function sendNotification(notification) {
         body: JSON.stringify(notification)
     };
 
-    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
-    return fetch("http://rentalmgmt.co:8000/landlord/notification", requestOptions).then(handleResponse);
+    //return fetch("http://rentalmgmt.co:8000/landlord/notification", requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/landlord/notification", requestOptions).then(handleResponse);
 }
 
 function sendServiceReq(serviceReq) {
@@ -189,9 +188,8 @@ function sendServiceReq(serviceReq) {
         body: JSON.stringify(serviceReq)
     };
 
-    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
-    return fetch("http://rentalmgmt.co:8000/tenant/service/request", requestOptions).then(handleResponse);
+    //return fetch("http://rentalmgmt.co:8000/tenant/service/request", requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/tenant/service/request", requestOptions).then(handleResponse);
 }
 
 function updateServiceReq(serviceReq) {
@@ -201,9 +199,8 @@ function updateServiceReq(serviceReq) {
         body: JSON.stringify(serviceReq)
     };
 
-    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
-    return fetch("http://rentalmgmt.co:8000/landlord/service/request/update", requestOptions).then(handleResponse);
+    //return fetch("http://rentalmgmt.co:8000/landlord/service/request/update", requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/landlord/service/request/update", requestOptions).then(handleResponse);
 }
 
 function updateUser(user) {
@@ -213,9 +210,8 @@ function updateUser(user) {
         body: JSON.stringify(user)
     };
 
-    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
-    return fetch("http://rentalmgmt.co:8000/users/update", requestOptions).then(handleResponse);
+    //return fetch("http://rentalmgmt.co:8000/users/update", requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/users/update", requestOptions).then(handleResponse);
 }
 
 function getPaymentList() {
@@ -225,9 +221,8 @@ function getPaymentList() {
         headers: authHeader(),
     };
 
-    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
-    return fetch("http://rentalmgmt.co:8000/users/payment/all", requestOptions).then(handleResponse);
+    //return fetch("http://rentalmgmt.co:8000/users/payment/all", requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/users/payment/all", requestOptions).then(handleResponse);
 }
 
 function getPaymentOverview(landLordID) {
@@ -237,9 +232,19 @@ function getPaymentOverview(landLordID) {
         headers: authHeader(),
     };
 
-    //return fetch(`${config.apiUrl}/users/register`, requestOptions).then(handleResponse);
-    //return fetch("http://10.0.0.152:8000/users/register", requestOptions).then(handleResponse);
-    return fetch("http://rentalmgmt.co:8000/tenant/payment/overview/" + landLordID, requestOptions).then(handleResponse);
+    //return fetch("http://rentalmgmt.co:8000/tenant/payment/overview/" + landLordID, requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/tenant/payment/overview/" + landLordID, requestOptions).then(handleResponse);
+}
+
+function updatePayment(paymentInfo) {
+    const requestOptions = {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify(paymentInfo)
+    };
+
+    //return fetch("http://rentalmgmt.co:8000/users/update", requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/tenant/payment/update", requestOptions).then(handleResponse);
 }
 
 function handleResponse(response) {

@@ -118,8 +118,8 @@ class HomePage extends React.Component {
 			const { serviceReq, currentUser } = this.state;
 			const { dispatch } = this.props;
 
-			serviceReq.RentalAddress = currentUser.items.RentalAddress;
-			serviceReq.TenantName = currentUser.items.FirstName + ' ' + currentUser.items.LastName
+			serviceReq.RentalAddress = currentUser.RentalAddress;
+			serviceReq.TenantName = currentUser.FirstName + ' ' + currentUser.LastName
 
 			if (serviceReq.Message) {
 				dispatch(userActions.sendServiceReq(serviceReq));
@@ -182,11 +182,15 @@ class HomePage extends React.Component {
 				mode: 'cors',
 				headers: authHeader()
 			};
-			fetch (`http://rentalmgmt.co:8000/users/currentUser`, requestOptions)
+			//fetch (`http://rentalmgmt.co:8080/users/currentUser`, requestOptions)
+			//fetch (`http://rentalmgmt.co:8080/users/currentUser`, requestOptions)
+			fetch (`http://localhost:8080/users/currentUser`, requestOptions)
 				.then( response => {
 					response.text().then( text => {
 						const data = text && JSON.parse(text);
+
 						this.setState({currentUser: data});
+
 						this.props.dispatch(userActions.getPaymentOverview(data.LandLordID));
 					})
 				})
@@ -241,58 +245,58 @@ class HomePage extends React.Component {
 
 		async buy() {
 			const { dispatch } = this.props;
-			const { paymentAmount, currentUser, selectedPayment } = this.state;
+			const { currentUser, selectedPayment } = this.state;
 			this.setState({submitted: true});
-			if (this.handleValidation(this.state.selectedPayment) && paymentAmount) {
-				const { nonce } = await this.instance.requestPaymentMethod();
+			const { nonce } = await this.instance.requestPaymentMethod();
 
-				var requestBody = {
-					PaymentID: selectedPayment.PaymentID,
-					LandLordID: currentUser.LandLordID,
-					TenantID: currentUser.UserID,
-					Amount: this.convertDollarToInt(paymentAmount),
-				};
+			var requestBody = {
+				PaymentID: selectedPayment.PaymentID,
+				LandLordID: currentUser.LandLordID,
+				TenantID: currentUser.UserID,
+				Amount: selectedPayment.Amount,
+			};
 
-				const requestOptions = {
-					method: 'POST',
-					mode: 'cors',
-					body: JSON.stringify(requestBody),
-				}
-				await fetch(`http://rentalmgmt.co:8000/tenant/pay/${nonce}`, requestOptions)
-								.then(response => {
-									this.setState({
-										modal: !this.state.modal
-									});
-									response.text().then( text => {
-										const data = text && JSON.parse(text);
-										console.log(data);
-										console.log(text);
-										console.log(response);
-										if (!data) {
-											this.props.dispatch(userActions.payment(null));
-										} else if (data.type === "error") {
-											this.props.dispatch(userActions.payment(data));
-										}
-									})
-								})
+			const requestOptions = {
+				method: 'POST',
+				mode: 'cors',
+				body: JSON.stringify(requestBody),
 			}
+			//await fetch(`http://rentalmgmt.co:8000/tenant/pay/${nonce}`, requestOptions)
+			await fetch(`http://localhost:8080/tenant/pay/${nonce}`, requestOptions)
+							.then(response => {
+								this.setState({
+									modal: !this.state.modal
+								});
+								//TODO: Need to improve error handling with braintree API
+								response.text().then( text => {
+									const data = text && JSON.parse(text);
+									if (!data) {
+										//update selected payment with pending payment
+										console.log(this.state.selectedPayment);
+										//this.props.dispatch(userActions.updatePayment(this.state.selectedPayment));
+									} else if (data.type === "error") {
+										//error out if error from braintree
+										//this.props.dispatch(userActions.payment(data));
+									}
+								})
+							})
 		}
 
     render() {
-        const { notifications, currentUser, serviceRequestList, paymentList, paymentOverview } = this.props;
-				const { submitted, serviceReq, selectedPayment, paymentAmount } = this.state;
+        const { notifications, serviceRequestList, paymentList, paymentOverview } = this.props;
+				const { currentUser, submitted, serviceReq, selectedPayment, paymentAmount } = this.state;
         return (
 					<div>
-					<h1>{currentUser.UserID}</h1>
+					<h1>Hello, {currentUser.FirstName}{' '}{currentUser.LastName}{'.'}</h1>
 					<Row>
 						<Col xs="6" sm="4">
 							<p>Notications:</p>
 							{currentUser.error && <span className="text-danger">ERROR: {currentUser.error}</span>}
-							{currentUser.items && currentUser.items.NotificaionList &&
+							{currentUser && currentUser.NotificationList && 
 								<ListGroup style={{overflow: "scroll", height: "550px", width: "100%"}}>
-									{currentUser.items.NotificationList.map((notification, index) =>
+									{currentUser.NotificationList.map((notification, index) =>
 										<ListGroupItem key={index}>
-											<ListGroupItemHeading>{notification.Time}</ListGroupItemHeading>
+											<ListGroupItemHeading>{this.convertEpochTime(notification.CreatedOn)}</ListGroupItemHeading>
 											<ListGroupItemHeading>From: {notification.From}</ListGroupItemHeading>
 											<ListGroupItemText>{notification.Message}</ListGroupItemText>
 										</ListGroupItem>
@@ -348,12 +352,12 @@ class HomePage extends React.Component {
 									{paymentList.items &&
 										<ListGroup style={{overflow: "scroll", height: "550px", width: "100%"}}>
 											{paymentList.items.map((payment, index) =>
-												<ListGroupItem key={index} color={(payment.Status === "processing") ? 'warning' : (payment.Status === "paid") ? 'success' : (payment.Status === "late") ? 'danger' : 'info'}>
+												<ListGroupItem key={index} color={(payment.Status === "processing") ? 'warning' : (payment.Status === "paid") ? 'success' : (payment.Status === "late") ? 'danger' : (payment.Status === "error") ? 'danger' : 'info'}>
 													<div>
 														<div style={{float: "left"}}></div>
-														<div style={{float: "right"}}><Button color="info" onClick={() => this.openModal(payment)}>Pay</Button></div>
+														<div style={{float: "right"}}><Button color="info" style={(payment.Status !== "open") ? {display:'none'} : {}} onClick={() => this.openModal(payment)}>Pay</Button></div>
 													</div>
-													<ListGroupItemHeading>{this.convertEpochTime(payment.PaidDate)}</ListGroupItemHeading>
+													<ListGroupItemHeading>{this.convertEpochTime(payment.DueDate)}</ListGroupItemHeading>
 													<ListGroupItemHeading>Amount: ${this.convertDollarAmount(payment.Amount)}</ListGroupItemHeading>
 													<ListGroupItemHeading>Category: {payment.Category}</ListGroupItemHeading>
 													<ListGroupItemHeading>Status: {payment.Status}</ListGroupItemHeading>
@@ -370,28 +374,14 @@ class HomePage extends React.Component {
 								<Modal show={this.state.modal} style={{opacity: "1"}} onHide={this.toggle}>
 									<Modal.Header closeButton><Modal.Title>Payment</Modal.Title></Modal.Header>
 										<Modal.Body>
-													<p>Category: {selectedPayment.Category}</p>
-													<p>Description: {selectedPayment.Description}</p>
-													<p>Date Posted: {this.convertEpochTime(selectedPayment.DueDate)}</p>
-													<p>Amount Due: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
-													<div className={'form-group' + (submitted && this.state.errors["paymentAmount"] ? ' has-error' : '')}>
-														<CurrencyInput inputType="text" prefix="$" name="paymentAmount" value={paymentAmount} onChangeEvent={this.handleChange.bind(this, "paymentAmount")}/>
-														<div className="help-block">{this.state.errors["paymentAmount"]}</div>
-													</div>
-													<DropIn
-														options={{ authorization: 'eyJ2ZXJzaW9uIjoyLCJhdXRob3JpemF0aW9uRmluZ2VycHJpbnQiOiJkOGY5MGU4ZDQ4NzExMzI3M2MzNDY5MmU5YjZiZDhhMjczZjBhZDM4NjdiMWM1YWRiOTg4Y2NiOWM0YTg3MDdlfGNyZWF0ZWRfYXQ9MjAxOS0wMS0xN1QwMjoyMjo0Ny4xMjcwMzY4NjgrMDAwMFx1MDAyNm1lcmNoYW50X2lkPWs1eW4ydzlzcTY5Nm43YnJcdTAwMjZwdWJsaWNfa2V5PXg4OHhicmt5enE0OWg0N2IiLCJjb25maWdVcmwiOiJodHRwczovL2FwaS5zYW5kYm94LmJyYWludHJlZWdhdGV3YXkuY29tOjQ0My9tZXJjaGFudHMvazV5bjJ3OXNxNjk2bjdici9jbGllbnRfYXBpL3YxL2NvbmZpZ3VyYXRpb24iLCJncmFwaFFMIjp7InVybCI6Imh0dHBzOi8vcGF5bWVudHMuc2FuZGJveC5icmFpbnRyZWUtYXBpLmNvbS9ncmFwaHFsIiwiZGF0ZSI6IjIwMTgtMDUtMDgifSwiY2hhbGxlbmdlcyI6WyJjdnYiXSwiZW52aXJvbm1lbnQiOiJzYW5kYm94IiwiY2xpZW50QXBpVXJsIjoiaHR0cHM6Ly9hcGkuc2FuZGJveC5icmFpbnRyZWVnYXRld2F5LmNvbTo0NDMvbWVyY2hhbnRzL2s1eW4ydzlzcTY5Nm43YnIvY2xpZW50X2FwaSIsImFzc2V0c1VybCI6Imh0dHBzOi8vYXNzZXRzLmJyYWludHJlZWdhdGV3YXkuY29tIiwiYXV0aFVybCI6Imh0dHBzOi8vYXV0aC52ZW5tby5zYW5kYm94LmJyYWludHJlZWdhdGV3YXkuY29tIiwiYW5hbHl0aWNzIjp7InVybCI6Imh0dHBzOi8vb3JpZ2luLWFuYWx5dGljcy1zYW5kLnNhbmRib3guYnJhaW50cmVlLWFwaS5jb20vazV5bjJ3OXNxNjk2bjdiciJ9LCJ0aHJlZURTZWN1cmVFbmFibGVkIjp0cnVlLCJwYXlwYWxFbmFibGVkIjp0cnVlLCJwYXlwYWwiOnsiZGlzcGxheU5hbWUiOiJSZW50YWwgTWFuYWdlbWVudCBQb3J0YWwiLCJjbGllbnRJZCI6IkFSV3VQWldDNzdIY3BZVlJoN25HTXVaU0tzd0s3eG9wSVVyUDZWWHM1UHAyLWZCY3NLdjNwTGF2eHZNYlBIZEhMc05xclRoVVpvVU1SNWVWIiwicHJpdmFjeVVybCI6Imh0dHA6Ly9leGFtcGxlLmNvbS9wcCIsInVzZXJBZ3JlZW1lbnRVcmwiOiJodHRwOi8vZXhhbXBsZS5jb20vdG9zIiwiYmFzZVVybCI6Imh0dHBzOi8vYXNzZXRzLmJyYWludHJlZWdhdGV3YXkuY29tIiwiYXNzZXRzVXJsIjoiaHR0cHM6Ly9jaGVja291dC5wYXlwYWwuY29tIiwiZGlyZWN0QmFzZVVybCI6bnVsbCwiYWxsb3dIdHRwIjp0cnVlLCJlbnZpcm9ubWVudE5vTmV0d29yayI6ZmFsc2UsImVudmlyb25tZW50Ijoib2ZmbGluZSIsInVudmV0dGVkTWVyY2hhbnQiOmZhbHNlLCJicmFpbnRyZWVDbGllbnRJZCI6Im1hc3RlcmNsaWVudDMiLCJiaWxsaW5nQWdyZWVtZW50c0VuYWJsZWQiOnRydWUsIm1lcmNoYW50QWNjb3VudElkIjoicmVudGFsbWFuYWdlbWVudHBvcnRhbCIsImN1cnJlbmN5SXNvQ29kZSI6IlVTRCJ9LCJtZXJjaGFudElkIjoiazV5bjJ3OXNxNjk2bjdiciIsInZlbm1vIjoib2ZmIn0=' }}
-														onInstance={instance => (this.instance = instance)}
-													/>
-											<Button color="success" onClick={this.toggleNested}>Show Nested Modal</Button>
-											<Modal show={this.state.nestedModal} style={{opacity: "1"}} onHide={this.toggleNested}>
-												<Modal.Header>Nested Modal title</Modal.Header>
-												<Modal.Body>
-												</Modal.Body>
-												<Modal.Footer>
-													<Button color="primary" onClick={this.toggleNested}>Done</Button>{' '}
-													<Button color="secondary" onClick={this.toggleAll}>All Done</Button>
-												</Modal.Footer>
-											</Modal>
+											<p>Category: {selectedPayment.Category}</p>
+											<p>Description: {selectedPayment.Description}</p>
+											<p>Date Posted: {this.convertEpochTime(selectedPayment.DueDate)}</p>
+											<p>Amount Due: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
+											<DropIn
+												options={{ authorization: 'production_mf5q8yfp_kc2j6g7k7gnvz8nj' }}
+												onInstance={instance => (this.instance = instance)}
+											/>
 										</Modal.Body>
 									<Modal.Footer>
 										<Button color="primary" onClick={this.buy.bind(this)}>Pay Now</Button>
@@ -422,4 +412,10 @@ export { connectedHomePage as HomePage };
 
 /*
             <Modal show={this.state.nestedModal} style={{opacity: "1"}} onHide={this.toggleNested} onClosed={this.state.closeAll ? this.toggle : undefined}>
+*/
+/*
+											<Button color="success" onClick={this.toggleNested}>Show Nested Modal</Button>
+*/
+/*
+														options={{ authorization: 'eyJ2ZXJzaW9uIjoyLCJhdXRob3JpemF0aW9uRmluZ2VycHJpbnQiOiJkOGY5MGU4ZDQ4NzExMzI3M2MzNDY5MmU5YjZiZDhhMjczZjBhZDM4NjdiMWM1YWRiOTg4Y2NiOWM0YTg3MDdlfGNyZWF0ZWRfYXQ9MjAxOS0wMS0xN1QwMjoyMjo0Ny4xMjcwMzY4NjgrMDAwMFx1MDAyNm1lcmNoYW50X2lkPWs1eW4ydzlzcTY5Nm43YnJcdTAwMjZwdWJsaWNfa2V5PXg4OHhicmt5enE0OWg0N2IiLCJjb25maWdVcmwiOiJodHRwczovL2FwaS5zYW5kYm94LmJyYWludHJlZWdhdGV3YXkuY29tOjQ0My9tZXJjaGFudHMvazV5bjJ3OXNxNjk2bjdici9jbGllbnRfYXBpL3YxL2NvbmZpZ3VyYXRpb24iLCJncmFwaFFMIjp7InVybCI6Imh0dHBzOi8vcGF5bWVudHMuc2FuZGJveC5icmFpbnRyZWUtYXBpLmNvbS9ncmFwaHFsIiwiZGF0ZSI6IjIwMTgtMDUtMDgifSwiY2hhbGxlbmdlcyI6WyJjdnYiXSwiZW52aXJvbm1lbnQiOiJzYW5kYm94IiwiY2xpZW50QXBpVXJsIjoiaHR0cHM6Ly9hcGkuc2FuZGJveC5icmFpbnRyZWVnYXRld2F5LmNvbTo0NDMvbWVyY2hhbnRzL2s1eW4ydzlzcTY5Nm43YnIvY2xpZW50X2FwaSIsImFzc2V0c1VybCI6Imh0dHBzOi8vYXNzZXRzLmJyYWludHJlZWdhdGV3YXkuY29tIiwiYXV0aFVybCI6Imh0dHBzOi8vYXV0aC52ZW5tby5zYW5kYm94LmJyYWludHJlZWdhdGV3YXkuY29tIiwiYW5hbHl0aWNzIjp7InVybCI6Imh0dHBzOi8vb3JpZ2luLWFuYWx5dGljcy1zYW5kLnNhbmRib3guYnJhaW50cmVlLWFwaS5jb20vazV5bjJ3OXNxNjk2bjdiciJ9LCJ0aHJlZURTZWN1cmVFbmFibGVkIjp0cnVlLCJwYXlwYWxFbmFibGVkIjp0cnVlLCJwYXlwYWwiOnsiZGlzcGxheU5hbWUiOiJSZW50YWwgTWFuYWdlbWVudCBQb3J0YWwiLCJjbGllbnRJZCI6IkFSV3VQWldDNzdIY3BZVlJoN25HTXVaU0tzd0s3eG9wSVVyUDZWWHM1UHAyLWZCY3NLdjNwTGF2eHZNYlBIZEhMc05xclRoVVpvVU1SNWVWIiwicHJpdmFjeVVybCI6Imh0dHA6Ly9leGFtcGxlLmNvbS9wcCIsInVzZXJBZ3JlZW1lbnRVcmwiOiJodHRwOi8vZXhhbXBsZS5jb20vdG9zIiwiYmFzZVVybCI6Imh0dHBzOi8vYXNzZXRzLmJyYWludHJlZWdhdGV3YXkuY29tIiwiYXNzZXRzVXJsIjoiaHR0cHM6Ly9jaGVja291dC5wYXlwYWwuY29tIiwiZGlyZWN0QmFzZVVybCI6bnVsbCwiYWxsb3dIdHRwIjp0cnVlLCJlbnZpcm9ubWVudE5vTmV0d29yayI6ZmFsc2UsImVudmlyb25tZW50Ijoib2ZmbGluZSIsInVudmV0dGVkTWVyY2hhbnQiOmZhbHNlLCJicmFpbnRyZWVDbGllbnRJZCI6Im1hc3RlcmNsaWVudDMiLCJiaWxsaW5nQWdyZWVtZW50c0VuYWJsZWQiOnRydWUsIm1lcmNoYW50QWNjb3VudElkIjoicmVudGFsbWFuYWdlbWVudHBvcnRhbCIsImN1cnJlbmN5SXNvQ29kZSI6IlVTRCJ9LCJtZXJjaGFudElkIjoiazV5bjJ3OXNxNjk2bjdiciIsInZlbm1vIjoib2ZmIn0=' }}
 */

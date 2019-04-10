@@ -23,6 +23,7 @@ export const userActions = {
 		getPaymentList,
 		payment,
 		getPaymentOverview,
+		updatePayment,
     delete: _delete
 };
 
@@ -327,6 +328,27 @@ function updateUser(user) {
     function request(user) { return { type: userConstants.UPDATE_USER_REQUEST, user } }
     function success(user) { return { type: userConstants.UPDATE_USER_SUCCESS, user } }
     function failure(error) { return { type: userConstants.UPDATE_USER_FAILURE, error } }
+}
+
+function updatePayment(paymentInfo) {
+    return dispatch => {
+        dispatch(request(paymentInfo));
+
+        userService.updatePayment(paymentInfo)
+            .then(
+                paymentInfo => { 
+                    dispatch(success());
+                },
+                error => {
+                    dispatch(failure(error.toString()));
+                    dispatch(alertActions.error(error.toString()));
+                }
+            );
+    };
+
+    function request(paymentInfo) { return { type: userConstants.UPDATE_PAYMENT_INFO_REQUEST, paymentInfo } }
+    function success(paymentInfo) { return { type: userConstants.UPDATE_PAYMENT_INFO_SUCCESS, paymentInfo } }
+    function failure(error) { return { type: userConstants.UPDATE_PAYMENT_INFO_FAILURE, error } }
 }
 
 function getPaymentList() {

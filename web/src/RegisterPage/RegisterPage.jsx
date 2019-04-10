@@ -94,6 +94,10 @@ class RegisterPage extends React.Component {
 			this.props.dispatch(userActions.getLandLordList());
 		}
 
+		convertDollarToInt(amount) {
+			return Number(amount.substr(1).replace(',','')) * 100;
+		}
+
 		handleClickSL() {
 			if (!this.state.showStateList) {
 				document.addEventListener('click', this.handleOutsideClickSL, false);
@@ -155,6 +159,7 @@ class RegisterPage extends React.Component {
         const { dispatch } = this.props;
 
         if (this.handleValidation() && user.firstName && user.lastName && user.password && user.email && user.landLord && user.billingStreet && user.billingCity && user.billingZipcode && user.billingState) {
+					user.rentalPaymentAmt = this.convertDollarToInt(user.rentalPaymentAmt);
 					dispatch(userActions.register(user));
         }
     }
