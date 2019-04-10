@@ -19,7 +19,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"golang.org/x/crypto/bcrypt"
-	//	"github.com/logpacker/PayPal-Go-SDK"
 	"gopkg.in/gomail.v2"
 )
 
@@ -31,6 +30,7 @@ const (
 	OPEN = "open"
 	PROCESSING = "processing"
 	LATE = "late"
+	ERROR = "error"
 )
 
 type User struct {
@@ -198,8 +198,9 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 var tokenPass []byte
 
-func DailyTaskExec() {
+func DailyCheckRentDue() {
 	for t := range time.NewTicker(86400 * time.Second).C {
+	//TEST: create test payment obj
 	//for t := range time.NewTicker(8 * time.Second).C {
 		fmt.Println(t)
 
@@ -218,11 +219,13 @@ func DailyTaskExec() {
 
 				//TODO: Need to redo how I add payments. currently adding to only landlord payment list
 				// too confusing to keep track of
-				payment := Payment{ PaymentID: uuid.New().String(), LandLordID: user.LandLordID, TenantID: user.UserID, BTTransactionID: "", Category: RENT, PaymentMethod: "", Status: OPEN, Amount: user.RentalPaymentAmt, PaidDate: "", DueDate: dueDate, Description: description}
+				//payment := Payment{ PaymentID: uuid.New().String(), LandLordID: user.LandLordID, TenantID: user.UserID, BTTransactionID: "", Category: RENT, PaymentMethod: "", Status: OPEN, Amount: user.RentalPaymentAmt, PaidDate: "", DueDate: dueDate, Description: description}
+				//TEST: production api test, $1
+				payment := Payment{ PaymentID: uuid.New().String(), LandLordID: user.LandLordID, TenantID: user.UserID, BTTransactionID: "", Category: RENT, PaymentMethod: "", Status: OPEN, Amount: 100, PaidDate: "", DueDate: dueDate, Description: description}
 
 				for i, tmpUser := range userList {
 					if strings.EqualFold(tmpUser.UserID, user.LandLordID) {
-						userList[i].PaymentList = append(userList[i].PaymentList, payment)
+						userList[i].PaymentList = append([]Payment{payment}, userList[i].PaymentList...)
 					}
 				}
 
@@ -237,9 +240,93 @@ func DailyTaskExec() {
 	}
 }
 
+func DailyCheckPendingPayments() {
+	for t := range time.NewTicker(86400 * time.Second).C {
+
+		var completedPaymentList []Payment
+
+		//TODO: refactor altLogger() to include INFO log messages instead of only ERROR messages.
+		fmt.Printf("%v\n", t)
+		pendingPaymentList, err := getPendingPayments()
+		if err != nil {
+			altLogger(err.Error())
+		}
+
+		//Production: production api
+		bt := braintree.New(
+			braintree.Production,
+				"kc2j6g7k7gnvz8nj",
+				"fx65ws9kvkkqtp68",
+				"73e89ee295205330104dca83df884b7a",
+			)
+
+		/* TEST: Sandbox API
+		bt := braintree.New(
+			braintree.Sandbox,
+				"k5yn2w9sq696n7br",
+				"x88xbrkyzq49h47b",
+				"261c7177b5cb9228f1cf4e4a0ac13c91",
+			)
+		*/
+
+		ctx := context.Background()
+
+		for i, payment := range pendingPaymentList {
+			t, err := bt.Transaction().SubmitForSettlement(ctx, payment.BTTransactionID)
+			//TODO: refactor altLogger() to include INFO log messages instead of only ERROR messages.
+			fmt.Printf("%v\n", t)
+			if err != nil {
+				altLogger(err.Error())
+				pendingPaymentList[i].Status = ERROR
+			} else {
+				pendingPaymentList[i].Status = PAID
+			}
+		}
+
+		userList, err := getUserListFromDatabase()
+		if err != nil {
+			altLogger(err.Error())
+		}
+
+		for _, pendingPayment := range pendingPaymentList {
+			for i, user := range userList {
+				if strings.EqualFold(user.UserID, pendingPayment.LandLordID) {
+					for j, payment := range user.PaymentList {
+						if strings.EqualFold(pendingPayment.PaymentID, payment.PaymentID) {
+							userList[i].PaymentList[j] = pendingPayment
+							completedPaymentList = append(completedPaymentList, pendingPayment)
+						}
+					}
+				}
+			}
+		}
+
+		err = updateUserDatabase(userList)
+		if err != nil {
+			altLogger(err.Error())
+		}
+
+		emailCompletedPaymentConfirmation(completedPaymentList)
+	}
+}
+
+func getPendingPayments() ([]Payment, error) {
+
+	var pendingPaymentList []Payment
+
+	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/PendingPayments")
+	if err != nil {
+		return nil, err
+	}
+	json.Unmarshal(bytes, &pendingPaymentList)
+
+	return pendingPaymentList, nil
+}
+
 func main() {
 
-	go DailyTaskExec()
+	go DailyCheckRentDue()
+	go DailyCheckPendingPayments()
 
 	var err error
 	tokenPass, err = ioutil.ReadFile("/home/jkwon/Git/project/etc/tokenpass")
@@ -268,9 +355,10 @@ func main() {
 	router.Handle("/tenant/service/request", appHandler(sendServiceRequest))
 	router.Handle("/tenant/pay/{tokenKey}", appHandler(tenantPayment))
 	router.Handle("/tenant/payment/overview/{landLordID}", appHandler(getPaymentOverview))
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost", "http://localhost:8080", "http://192.168.1.125", "http://192.168.1.125:8080", "http://rentalmgmt.co:8080", "http://rentalmgmt.co"},
+		AllowedOrigins:   []string{"http://localhost", "http://localhost:8080", "http://192.168.1.125", "http://192.168.1.125:8080", "http://rentalmgmt.co:8080", "http://rentalmgmt.co", "http://localhost:8081"},
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS", "PUT", "DELETE"},
 		AllowedHeaders:   []string{"Accept", "Accept-Language", "Content-Type", "Authorization", "Bearer"},
 		AllowCredentials: true,
@@ -280,7 +368,7 @@ func main() {
 	router.Use(AuthMiddleware)
 
 	handler := c.Handler(router)
-	log.Fatal(http.ListenAndServe("0.0.0.0:8000", handler))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8080", handler))
 }
 
 func authenticateTokenAndReturnClaims(tokenString string) (jwt.MapClaims, error) {
@@ -461,7 +549,6 @@ func getLandLordList(resp http.ResponseWriter, req *http.Request) *appError {
 	resp.Header().Set("Content-Type", "application/json")
 	resp.WriteHeader(200)
 	resp.Write(bytes)
-
 	logger(nil, resp, req)
 	return nil
 }
@@ -482,39 +569,60 @@ func tenantPayment(resp http.ResponseWriter, req *http.Request) *appError {
 		return &appError{err, "Payment failed. Please contact customer support or try again later.", "Failed to read request", 500}
 	}
 
+	//Production: production api
+	bt := braintree.New(
+		braintree.Production,
+			"kc2j6g7k7gnvz8nj",
+			"fx65ws9kvkkqtp68",
+			"73e89ee295205330104dca83df884b7a",
+		)
+
+	/* TEST: Sandbox API
 	bt := braintree.New(
 		braintree.Sandbox,
 			"k5yn2w9sq696n7br",
 			"x88xbrkyzq49h47b",
 			"261c7177b5cb9228f1cf4e4a0ac13c91",
 		)
+	*/
 
 	ctx := context.Background()
 	t, err := bt.Transaction().Create(ctx, &braintree.TransactionRequest{
 		Type: "sale",
-		Amount: braintree.NewDecimal(reqBody.Amount, 2), // $5.00
+		Amount: braintree.NewDecimal(reqBody.Amount, 2),
 		PaymentMethodNonce: tokenKey,
 	})
 	if err != nil {
-		return &appError{err, "Payment failed. Server down. Please contact customer support or try again later.", "Payment failed", 403}
+		return &appError{err, "Payment failed. Server down. Please contact customer support.", "Payment failed", 403}
 	}
 
 
-	err = updatePayment(reqBody.PaymentID, reqBody.LandLordID, reqBody.TenantID, reqBody.Amount, t.Id, string(t.PaymentInstrumentType))
+	pendingPayment, err := updatePayment(reqBody.PaymentID, reqBody.LandLordID, reqBody.TenantID, reqBody.Amount, t.Id, string(t.PaymentInstrumentType))
 	if err != nil {
-		return &appError{err, "Creating payment history failed. Server down. Please contact customer support or try again later.", "Creating Payment failed", 500}
+		return &appError{err, "Creating payment history failed. Server down. Please contact customer support.", "Creating Payment failed", 500}
+	}
+
+	err = addToPendingPaymentList(pendingPayment)
+	if err != nil {
+		return &appError{err, "Updating payment failed. Please contact customer support.", "Adding payment to pending payment list failed", 500}
+	}
+
+	err = emailPaymentConfirmation(pendingPayment)
+	if err != nil {
+		return &appError{err, "Updating payment failed. Please contact customer support.", "Adding payment to pending payment list failed", 500}
 	}
 
 	logger(nil, resp, req)
 	return nil
 }
 
-func updatePayment(paymentID string, landLordID string, tenantID string, amount int64, btTransactionID string, paymentMethod string) error {
+func updatePayment(paymentID string, landLordID string, tenantID string, amount int64, btTransactionID string, paymentMethod string) (Payment, error) {
 	userList, err := getUserListFromDatabase()
 	if err != nil {
-		return err
+		return Payment{}, err
 	}
 
+	var pendingPayment Payment
 	for i, user := range userList {
 		if strings.EqualFold(user.UserID, landLordID) {
 			for j, payment := range user.PaymentList {
@@ -523,19 +631,45 @@ func updatePayment(paymentID string, landLordID string, tenantID string, amount 
 						now := time.Now()
 						secs := now.Unix()
 						date := strconv.FormatInt(secs, 10)
-						userList[i].PaymentList[j].Status = PAID
+						userList[i].PaymentList[j].Status = PROCESSING
 						userList[i].PaymentList[j].PaidDate = date
 					} else {
 						userList[i].PaymentList[j].Amount = userList[i].PaymentList[j].Amount - amount
 					}
 					userList[i].PaymentList[j].BTTransactionID = btTransactionID
 					userList[i].PaymentList[j].PaymentMethod = paymentMethod
+					pendingPayment = userList[i].PaymentList[j]
 				}
 			}
 		}
 	}
 
 	err = updateUserDatabase(userList)
+	if err != nil {
+		return Payment{}, err
+	}
+
+	return pendingPayment, nil
+}
+
+func addToPendingPaymentList(pendingPayment Payment) error {
+
+	var pendingPaymentList []Payment
+
+	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/PendingPayments")
+	if err != nil {
+		return err
+	}
+	json.Unmarshal(bytes, &pendingPaymentList)
+
+	pendingPaymentList = append(pendingPaymentList, pendingPayment)
+
+	bytes, err = json.Marshal(pendingPaymentList)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile("/home/jkwon/Git/project/database/PendingPayments", bytes, 0644)
 	if err != nil {
 		return err
 	}
@@ -1369,15 +1503,35 @@ func emailRentDueNotification() {
 	}
 	json.Unmarshal(bytes, &userList)
 
-	//kvs := map[string]string{"Alan Ayala": "kanonbolt128@gmail.com", "Laura Smith": "smithlaura9295@gmail.com"}
-	kvs := map[string]string{"Alan Ayala": "jasonykwon91@gmail.com", "Laura Smith": "jasonykwon91@gmail.com"}
-
 	t := time.Now()
 	year := strconv.Itoa(t.Year())
 	month := t.Month().String()
 	day := strconv.Itoa(t.Day())
 	theDate := month + " " + day + " " + year
 
+	for _, user := range userList {
+		if strings.EqualFold(user.UserType, TENANT) {
+			m := gomail.NewMessage()
+			m.SetHeader("From", string(email))
+			m.SetHeader("To", user.Email)
+			m.SetHeader("Subject", "Rent due for "+month+" "+year)
+			m.SetBody("text/html", `
+				<p><b>Hi `+user.FirstName+` `+user.LastName+`</b></p><br><p>This is a reminder that rent is due today(`+theDate+`)</p><br>
+				<p>Log into www.rentalmgmt.co to pay.</p>
+			`)
+
+			d := gomail.NewDialer("smtp.gmail.com", 587, string(email), string(emailPass))
+
+			if err := d.DialAndSend(m); err != nil {
+				altLogger(err.Error())
+			}
+		}
+	}
+
+	//TEST
+	//kvs := map[string]string{"Alan Ayala": "jasonykwon91@gmail.com", "Laura Smith": "jasonykwon91@gmail.com"}
+
+	/* TEST
 	for name, tenantEmail := range kvs {
 		m := gomail.NewMessage()
 		m.SetHeader("From", string(email))
@@ -1391,10 +1545,91 @@ func emailRentDueNotification() {
 		if err := d.DialAndSend(m); err != nil {
 			altLogger(err.Error())
 		}
-	}
+	}*/
 }
 
-func emailReceipts() {
+func emailPaymentConfirmation(paymentInfo Payment) error {
+
+	email, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmail")
+	if err != nil {
+		return err
+	}
+
+	emailPass, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmailPass")
+	if err != nil {
+		return err
+	}
+	var userList []User
+
+	bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/Users")
+	if err != nil {
+		return err
+	}
+	json.Unmarshal(bytes, &userList)
+
+	t := time.Now()
+	year := strconv.Itoa(t.Year())
+	month := t.Month().String()
+	day := strconv.Itoa(t.Day())
+	theDate := month + " " + day + " " + year
+
+	for _, user := range userList {
+		if strings.EqualFold(user.UserID, paymentInfo.TenantID) {
+			name := user.FirstName + " "+ user.LastName
+			m := gomail.NewMessage()
+			m.Embed("/home/jkwon/Git/project/signature.jpg")
+			m.SetHeader("From", string(email))
+			m.SetHeader("To", user.Email)
+			m.SetHeader("Subject", "Rent Receipt for "+month+" "+year)
+			m.SetBody("text/html", `
+				<p>Thank you for your payment! This is a confirmation email. We will process your payment within 24 hours.</p><br>
+				<table width='600' style='border:1px solid #333'>
+				<tbody>
+					<tr><td align='left'><b>Transaction number:</b>`+paymentInfo.PaymentID+`</td></tr>
+					<tr><td align='left'><b>Brain Tree Transaction number:</b>`+paymentInfo.BTTransactionID+`</td></tr>
+					<tr><td align='left'><b>Name:</b> `+name+`</td></tr>
+					<tr><td align='left'><b>Date:</b> `+theDate+`</td></tr>
+					<tr><td align='left'><b>Transaction Type:</b>Card</td></tr>
+					<tr>
+						<td align='center'>
+							<table align='center' width='300' border='0' cellspacing='0' cellpadding='0' style='border:1px solid #ccc; padding:10px 0px 10px 10px'>
+								<tr>
+									<td><b>Category:</b></td>
+									<td>$`+paymentInfo.Category+`</td>
+								</tr>
+								<tr>
+									<td><b>Amount Due:</b></td>
+									<td>$`+strconv.FormatInt(paymentInfo.Amount,10)+`</td>
+								</tr>
+								<tr>
+									<td><b>Amount Paid:</b></td>
+									<td>$`+strconv.FormatInt(paymentInfo.Amount,10)+`</td>
+								</tr>
+								<tr>
+									<td><b>Received by:</b></td>
+									<td>Jason Kwon</td>
+								</tr>
+								<tr>
+									<td><b>Signature:</b></td>
+									<td><img src='cid:signature.jpg' alt='My Image' style='max-width: 100px; max-height: 100px' /></td>
+								</tr>
+							</table>
+					</tr>
+					<br>
+				</tbody>`)
+
+			d := gomail.NewDialer("smtp.gmail.com", 587, string(email), string(emailPass))
+
+			if err := d.DialAndSend(m); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func emailCompletedPaymentConfirmation(completedPaymentList []Payment) {
 
 	email, err := ioutil.ReadFile("/home/jkwon/Git/project/businessEmail")
 	if err != nil {
@@ -1413,57 +1648,31 @@ func emailReceipts() {
 	}
 	json.Unmarshal(bytes, &userList)
 
-	//kvs := map[string]string{"Alan Ayala": "kanonbolt128@gmail.com", "Laura Smith": "smithlaura9295@gmail.com"}
-	kvs := map[string]string{"Alan Ayala": "jasonykwon91@gmail.com", "Laura Smith": "jasonykwon91@gmail.com"}
-
 	t := time.Now()
 	year := strconv.Itoa(t.Year())
 	month := t.Month().String()
-	day := strconv.Itoa(t.Day())
-	theDate := month + " " + day + " " + year
+	//day := strconv.Itoa(t.Day())
+	//theDate := month + " " + day + " " + year
 
-	for name, tenantEmail := range kvs {
-		m := gomail.NewMessage()
-		m.Embed("/home/jkwon/Git/project/signature.jpg")
-		m.SetHeader("From", string(email))
-		m.SetHeader("To", tenantEmail)
-		m.SetHeader("Subject", "Rent Receipt for "+month+" "+year)
-		m.SetBody("text/html", `
-			<table width='600' style='border:1px solid #333'
-			<tbody>
-				<tr><td align='left'><b>Transaction number:</b>1234-5678-1234-5678</td></tr>
-				<tr><td align='left'><b>Name:</b> `+name+`</td></tr>
-				<tr><td align='left'><b>Date:</b> `+theDate+`</td></tr>
-				<tr><td align='left'><b>Transaction Type:</b> Cash</td></tr>
-				<tr>
-					<td align='center'>
-						<table align='center' width='300' border='0' cellspacing='0' cellpadding='0' style='border:1px solid #ccc; padding:10px 0px 10px 10px'>
-							<tr>
-								<td><b>Amount Due:</b></td>
-								<td>$550</td>
-							</tr>
-							<tr>
-								<td><b>Amount Paid:</b></td>
-								<td>$550</td>
-							</tr>
-							<tr>
-								<td><b>Received by:</b></td>
-								<td>Jason Kwon</td>
-							</tr>
-							<tr>
-								<td><b>Signature:</b></td>
-								<td><img src='cid:signature.jpg' alt='My Image' style='max-width: 100px; max-height: 100px' /></td>
-							</tr>
-						</table>
-				</tr>
-				<br>
-			</tbody>`)
+	for _, user := range userList {
+		for _, payment := range completedPaymentList {
+			if strings.EqualFold(payment.TenantID, user.UserID) {
+				m := gomail.NewMessage()
+				m.Embed("/home/jkwon/Git/project/signature.jpg")
+				m.SetHeader("From", string(email))
+				m.SetHeader("To", user.Email)
+				m.SetHeader("Subject", "Payment confirmation for "+month+" "+year)
+				m.SetBody("text/html", `
+						<p> This is to confirm your payment has finished processing.</p>		
+				`)
 
-		d := gomail.NewDialer("smtp.gmail.com", 587, string(email), string(emailPass))
+				d := gomail.NewDialer("smtp.gmail.com", 587, string(email), string(emailPass))
 
-		// Send the email to Bob, Cora and Dan.
-		if err := d.DialAndSend(m); err != nil {
-			altLogger(err.Error())
+				// Send the email to Bob, Cora and Dan.
+				if err := d.DialAndSend(m); err != nil {
+					altLogger(err.Error())
+				}
+			}
 		}
 	}
 }
