@@ -44,6 +44,7 @@ class HomePage extends React.Component {
 			this.toggleNested = this.toggleNested.bind(this);
 			this.toggleAll = this.toggleAll.bind(this);
 			this.fetchCurrentUser = this.fetchCurrentUser.bind(this);
+			this.createTestPayment = this.createTestPayment.bind(this);
 
 			this.handleChange = this.handleChange.bind(this);
 			this.handleSubmit = this.handleSubmit.bind(this);
@@ -183,7 +184,7 @@ class HomePage extends React.Component {
 				headers: authHeader()
 			};
 			//fetch (`http://rentalmgmt.co:8080/users/currentUser`, requestOptions)
-			//fetch (`http://rentalmgmt.co:8080/users/currentUser`, requestOptions)
+			//TEST:
 			fetch (`http://localhost:8080/users/currentUser`, requestOptions)
 				.then( response => {
 					response.text().then( text => {
@@ -243,6 +244,12 @@ class HomePage extends React.Component {
 			return formatted;
 		}
 
+		createTestPayment() {
+			console.log("hello");
+			const { dispatch } = this.props;
+			dispatch(userActions.createTestPayment());
+		}
+
 		async buy() {
 			const { dispatch } = this.props;
 			const { currentUser, selectedPayment } = this.state;
@@ -261,8 +268,8 @@ class HomePage extends React.Component {
 				mode: 'cors',
 				body: JSON.stringify(requestBody),
 			}
-			//await fetch(`http://rentalmgmt.co:8000/tenant/pay/${nonce}`, requestOptions)
-			await fetch(`http://localhost:8080/tenant/pay/${nonce}`, requestOptions)
+			await fetch(`http://rentalmgmt.co:8080/tenant/pay/${nonce}`, requestOptions)
+			//await fetch(`http://localhost:8080/tenant/pay/${nonce}`, requestOptions)
 							.then(response => {
 								this.setState({
 									modal: !this.state.modal
@@ -370,6 +377,7 @@ class HomePage extends React.Component {
 					</Row>
 						<p>
 								<Link to="/login">Logout</Link>
+								<Button color="primary" onClick={this.createTestPayment}>Create test payment</Button>
 						</p>
 								<Modal show={this.state.modal} style={{opacity: "1"}} onHide={this.toggle}>
 									<Modal.Header closeButton><Modal.Title>Payment</Modal.Title></Modal.Header>
