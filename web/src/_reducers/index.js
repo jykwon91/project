@@ -18,6 +18,7 @@ import { updateUser } from './updateUser.reducer';
 import { paymentList } from './paymentList.reducer';
 import { payment } from './payment.reducer';
 import { paymentOverview } from './paymentOverview.reducer';
+import { createTestPayment } from './createTestPayment.reducer';
 import { alert } from './alert.reducer';
 
 const rootReducer = combineReducers({
@@ -39,6 +40,7 @@ const rootReducer = combineReducers({
 	paymentList,
 	payment,
 	paymentOverview,
+	createTestPayment,
   alert
 });
 

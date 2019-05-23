@@ -21,6 +21,7 @@ export const userService = {
 		getPaymentList,
 		getPaymentOverview,
 		updatePayment,
+		createTestPayment,
     //delete: _delete
 };
 
@@ -234,6 +235,17 @@ function getPaymentOverview(landLordID) {
 
     //return fetch("http://rentalmgmt.co:8000/tenant/payment/overview/" + landLordID, requestOptions).then(handleResponse);
     return fetch(apiUrl + "/tenant/payment/overview/" + landLordID, requestOptions).then(handleResponse);
+}
+
+function createTestPayment() {
+    const requestOptions = {
+        method: 'GET',
+				mode: 'cors',
+        headers: authHeader(),
+    };
+
+    //return fetch("http://rentalmgmt.co:8000/tenant/payment/overview/" + landLordID, requestOptions).then(handleResponse);
+    return fetch(apiUrl + "/test/create/payment", requestOptions).then(handleResponse);
 }
 
 function updatePayment(paymentInfo) {

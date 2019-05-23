@@ -7,6 +7,7 @@ export const userActions = {
     login,
     logout,
     register,
+		createTestPayment,
     getAll,
     getAllNotifications,
 		getAllLandLordProperties,
@@ -377,6 +378,20 @@ function getPaymentOverview(landLordID) {
     function request() { return { type: userConstants.GET_PAYMENT_OVERVIEW_REQUEST } }
     function success(paymentOverview) { return { type: userConstants.GET_PAYMENT_OVERVIEW_SUCCESS, paymentOverview } }
     function failure(error) { return { type: userConstants.GET_PAYMENT_OVERVIEW_FAILURE, error } }
+}
+
+function createTestPayment() {
+	return dispatch => {
+		userService.createTestPayment()
+			.then(
+				testPayment => dispatch(success(testPayment)),
+				error => dispatch(failure(error.toString()))
+			);
+	};
+
+	function request() { return { type: userConstants.CREATE_TEST_PAYMENT_REQUEST} }
+	function success(testPayment) { return { type: userConstants.CREATE_TEST_PAYMENT_SUCCESS, testPayment } }
+	function failure(error) { return { type: userConstants.CREATE_TEST_PAYMENT_FAILURE, error } }
 }
 
 // prefixed function name with underscore because delete is a reserved word in javascript

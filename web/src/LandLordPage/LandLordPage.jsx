@@ -206,6 +206,41 @@ class LandLordPage extends React.Component {
       return formatted;
     }
 
+		convertDollarAmount(amount) {
+			return parseFloat(Math.round(amount) / 100).toFixed(2);
+		}
+
+		convertDollarToInt(amount) {
+			return Number(amount.substr(1).replace(',','')) * 100;
+		}
+
+
+		convertEpochTime(time) {
+			var t = new Date(time * 1000);
+			var arrMonth = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+			var hours = t.getHours()
+				var afternoon = false;
+			if (hours > 12) {
+				hours = hours - 12;
+				afternoon = true;
+			}
+
+			var minutes = t.getMinutes();
+			if (minutes < 10) {
+				minutes = '0' + minutes
+			}
+			if (!afternoon) {
+				minutes = minutes + ' AM';
+			} else {
+				minutes = minutes + ' PM';
+			}
+
+			var formatted = arrMonth[t.getMonth()] + ' ' + t.getDate() + ' ' + t.getFullYear() + ' ' + hours + ':' + minutes;
+			return formatted;
+		}
+
+
 		handleAddressList = (event) => {
 			const selectedAddressList = Array.from(event.target.options)
 				.reduce((addressList, address) => {
@@ -234,9 +269,10 @@ class LandLordPage extends React.Component {
 											<ListGroup style={{overflow: "scroll", height: "300px", width: "100%"}}>
 												{paymentList.items.map((payment, index) =>
 													<ListGroupItem key={index}>
-														<ListGroupItemHeading>{payment.PaidDate}</ListGroupItemHeading>
-														<ListGroupItemHeading>From: {payment.Amount}</ListGroupItemHeading>
-														<ListGroupItemText>{payment.Category}</ListGroupItemText>
+														<ListGroupItemHeading>{this.convertEpochTime(payment.DueDate)}</ListGroupItemHeading>
+														<ListGroupItemHeading>Amount: ${this.convertDollarAmount(payment.Amount)}</ListGroupItemHeading>
+														<ListGroupItemHeading>Category: {payment.Category}</ListGroupItemHeading>
+														<ListGroupItemHeading>Status: {payment.Status}</ListGroupItemHeading>
 													</ListGroupItem>
 												)}
 											</ListGroup>
@@ -339,6 +375,7 @@ class LandLordPage extends React.Component {
 								</div>
 							</form>
 								<p><Link to="/home/register">Register Rental Home</Link></p>
+								<p><Link to="/register">Register Tenant</Link></p>
                 <p><Link to="/login">Logout</Link></p>
             </div>
         );

@@ -5,9 +5,11 @@ businessEmail
 businessEmailPass
 web/node_modules/
 web/npm-debug.log
+web/dist/bundle.js
 pkg/
 database/
 log/
 nohup.out
 server
+src/github.com/*
 *.swp
