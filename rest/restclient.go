@@ -21,31 +21,35 @@ type appHandler func(http.ResponseWriter, *http.Request) *appError.AppError
 func InitRestClient() {
 	router := mux.NewRouter()
 
+	//POST
         router.Handle("/users/authenticate", appHandler(AuthenticateUser))
-        router.Handle("/tenant/payment/overview/{landLordID}", appHandler(GetPaymentOverview))
-        router.Handle("/users/landlord/all", appHandler(GetLandLordList))
+        router.Handle("/users/register", appHandler(RegisterUser))
+        router.Handle("/users/update", appHandler(UpdateUser))
         router.Handle("/tenant/pay/{tokenKey}", appHandler(TenantPayment))
+        router.Handle("/users/landlord/property/register", appHandler(RegisterLandlordProperty))
+        router.Handle("/landlord/notification", appHandler(SendNotification))
+        router.Handle("/landlord/service/request/update", appHandler(UpdateServiceRequest))
+        router.Handle("/tenant/service/request", appHandler(SendServiceRequest))
+
+	//GET
+        router.Handle("/stateList", appHandler(GetStateList))
+        router.Handle("/users/all", appHandler(GetAllUsers))
+        router.Handle("/users/payment/all", appHandler(GetPaymentList))
         router.Handle("/users/service/all", appHandler(GetServiceRequestList))
-/*
-        router.Handle("/users/register", appHandler(registerUser))
-        router.Handle("/users/all", appHandler(getAllUsers))
-        router.Handle("/users/notification/all", appHandler(getAllNotifications))
-        router.Handle("/users/currentUser", appHandler(getCurrentUser))
-        router.Handle("/users/update", appHandler(updateUser))
-        router.Handle("/users/payment/all", appHandler(getPaymentList))
+        router.Handle("/users/currentUser", appHandler(GetCurrentUser))
+        router.Handle("/users/landlord/all", appHandler(GetLandLordList))
+        router.Handle("/users/notification/all", appHandler(GetAllNotifications))
+        router.Handle("/tenant/payment/overview/{landLordID}", appHandler(GetPaymentOverview))
+        router.Handle("/landlord/property/all", appHandler(GetAllLandLordProperties))
+        router.Handle("/landlord/tenant/all", appHandler(GetTenantList))
 
-        router.Handle("/stateList", appHandler(getStateList))
-        router.Handle("/users/landlord/property/register", appHandler(registerLandlordProperty))
-        router.Handle("/landlord/property/all", appHandler(getAllLandLordProperties))
-        router.Handle("/landlord/notification", appHandler(sendNotification))
-        router.Handle("/landlord/service/request/update", appHandler(updateServiceRequest))
-        router.Handle("/landlord/tenant/all", appHandler(getTenantList))
-        router.Handle("/tenant/service/request", appHandler(sendServiceRequest))
 
+
+	//DELETE
         //router.Handle("/landlord/tenant/delete/{tenantID}", appHandler(deleteTenant))
         //router.Handle("/users/notification/delete/{notificationID}", appHandler(deleteNotification))
-*/
 
+	//TEST
         router.Handle("/test/create/payment", appHandler(TestCreatePayment))
 
         router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
@@ -97,4 +101,26 @@ func AuthMiddleware(next http.Handler) http.Handler {
                         next.ServeHTTP(resp, req)
                 }
         })
+}
+
+func GetStateList(resp http.ResponseWriter, req *http.Request) *appError.AppError {
+        type State struct {
+                id    int
+                value string
+                name  string
+        }
+        var stateList []State
+
+        bytes, err := ioutil.ReadFile("/home/jkwon/Git/project/database/StateListWithName")
+        if err != nil {
+                return &appError.AppError{err, "Getting stateList failed. Server down. Please contact customer support or try again later.", "Failed to read database file", 500}
+        }
+        json.Unmarshal(bytes, &stateList)
+
+        resp.Header().Set("Content-Type", "application/json")
+        resp.WriteHeader(200)
+        resp.Write(bytes)
+
+        logger.Logger(nil, resp, req)
+        return nil
 }

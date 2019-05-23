@@ -91,7 +91,7 @@ func GetPaymentOverview(resp http.ResponseWriter, req *http.Request) *appError.A
         return nil
 }
 
-func getPaymentList(resp http.ResponseWriter, req *http.Request) *appError.AppError {
+func GetPaymentList(resp http.ResponseWriter, req *http.Request) *appError.AppError {
 
         claims, err := AuthenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
         if err != nil {
@@ -218,3 +218,36 @@ func TenantPayment(resp http.ResponseWriter, req *http.Request) *appError.AppErr
         logger.Logger(nil, resp, req)
 	return nil
 }
+
+/*
+// change this to update payment
+func createPayment(tenantName string, rentalAddress string, landLordID string, tenantID string, amount int64, btTransactionID string, paymentMethod string, category string, status string) error {
+
+        date := ""
+        if strings.EqualFold(constant.PAID, status) {
+                now := time.Now()
+                secs := now.Unix()
+                date = strconv.FormatInt(secs, 10)
+        }
+
+        thePayment := payment.Payment{TenantName: tenantName, RentalAddress: rentalAddress, LandLordID: landLordID, TenantID: tenantID, BTTransactionID: btTransactionID, Category: category, PaymentMethod: paymentMethod, Status: status, Amount: amount, PaidDate: date}
+
+        userList, err := db.User.GetUserList()
+        if err != nil {
+                return err
+        }
+
+        for i, user := range userList {
+                if strings.EqualFold(user.UserID, landLordID) {
+                        userList[i].PaymentList = append(userList[i].PaymentList, thePayment)
+                }
+        }
+
+        err = db.User.UpdateUserList(userList)
+        if err != nil {
+                return err
+        }
+
+        return nil
+}
+*/

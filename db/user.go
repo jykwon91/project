@@ -1,6 +1,7 @@
 package db
 
 import (
+	"strings"
 	"encoding/json"
 	"io/ioutil"
 	"github.com/jykwon91/project/util/constant"
@@ -30,11 +31,33 @@ type UserData struct {
 var User UserInterface = UserInterfaceImpl{}
 
 type UserInterface interface {
+	GetUser(email string) (UserData, error)
 	GetUserList() ([]UserData, error)
 	UpdateUserList(updatedList []UserData) error
 }
 
 type UserInterfaceImpl struct {
+}
+
+func (impl UserInterfaceImpl) GetUser(email string) (UserData, error) {
+
+        var userList []UserData
+        var theUser UserData
+
+        bytes, err := ioutil.ReadFile(constant.USERFILE)
+        if err != nil {
+                return theUser, err
+        }
+
+        json.Unmarshal(bytes, &userList)
+        for _, user := range userList {
+                if strings.EqualFold(email, user.Email) {
+                        theUser = user
+                        break
+                }
+        }
+
+        return theUser, nil
 }
 
 func (impl UserInterfaceImpl) GetUserList() ([]UserData, error) {
