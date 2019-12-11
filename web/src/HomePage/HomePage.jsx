@@ -32,6 +32,7 @@ class HomePage extends React.Component {
 				instance: '',
 				clientToken: '',
 				modal: false,
+				receiptModal: false,
 				nestedModal: false,
 				closeAll: false,
 				paymentOverview: {},
@@ -41,6 +42,7 @@ class HomePage extends React.Component {
 			}
 
 			this.toggle = this.toggle.bind(this);
+			this.toggleReceipt = this.toggleReceipt.bind(this);
 			this.toggleNested = this.toggleNested.bind(this);
 			this.toggleAll = this.toggleAll.bind(this);
 			this.fetchCurrentUser = this.fetchCurrentUser.bind(this);
@@ -57,9 +59,22 @@ class HomePage extends React.Component {
 			});
 		}
 
+		openReceiptModal(payment) {
+			this.setState({
+				selectedPayment: payment,
+				receiptModal: !this.state.receiptModal,
+			});
+		}
+
 		toggle() {
 			this.setState({
 				modal: !this.state.modal
+			});
+		}
+
+		toggleReceipt() {
+			this.setState({
+				receiptModal: !this.state.receiptModal
 			});
 		}
 
@@ -363,6 +378,7 @@ class HomePage extends React.Component {
 													<div>
 														<div style={{float: "left"}}></div>
 														<div style={{float: "right"}}><Button color="info" style={(payment.Status !== "open") ? {display:'none'} : {}} onClick={() => this.openModal(payment)}>Pay</Button></div>
+														<div style={{float: "right"}}><Button color="info" style={(payment.Status !== "paid") ? {display:'none'} : {}} onClick={() => this.openReceiptModal(payment)}>View Receipt</Button></div>
 													</div>
 													<ListGroupItemHeading>{this.convertEpochTime(payment.DueDate)}</ListGroupItemHeading>
 													<ListGroupItemHeading>Amount: ${this.convertDollarAmount(payment.Amount)}</ListGroupItemHeading>
@@ -394,6 +410,23 @@ class HomePage extends React.Component {
 									<Modal.Footer>
 										<Button color="primary" onClick={this.buy.bind(this)}>Pay Now</Button>
 										<Button color="secondary" onClick={this.toggle}>Cancel</Button>
+									</Modal.Footer>
+								</Modal>
+								<Modal show={this.state.receiptModal} style={{opacity: "1"}} onHide={this.toggleReceipt}>
+									<Modal.Header closeButton><Modal.Title>Receipt</Modal.Title></Modal.Header>
+										<Modal.Body>
+											<p>Description: {selectedPayment.Description}</p>
+											<p>Category: {selectedPayment.Category}</p>
+											<p>Payment ID: {selectedPayment.PaymentID}</p>
+											<p>Date Posted: {this.convertEpochTime(selectedPayment.DueDate)}</p>
+											<p>Amount Due: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
+											<p>Date Paid: {this.convertEpochTime(selectedPayment.PaidDate)}</p>
+											<p>Amount Paid: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
+											<p>Payment Method: {selectedPayment.PaymentMethod}</p>
+										</Modal.Body>
+									<Modal.Footer>
+										<Button color="primary" onClick={this.buy.bind(this)}>Pay Now</Button>
+										<Button color="secondary" onClick={this.toggleReceipt}>Cancel</Button>
 									</Modal.Footer>
 								</Modal>
 					</div>

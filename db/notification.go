@@ -3,7 +3,6 @@ package db
 var Notification NotificationInterface = NotificationInterfaceImpl{}
 
 type NotificationInterface interface {
-
 }
 
 type NotificationInterfaceImpl struct {

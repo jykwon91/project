@@ -1,10 +1,10 @@
 package db
 
 import (
-	"strings"
 	"encoding/json"
-	"io/ioutil"
 	"github.com/jykwon91/project/util/constant"
+	"io/ioutil"
+	"strings"
 )
 
 type UserData struct {
@@ -41,36 +41,36 @@ type UserInterfaceImpl struct {
 
 func (impl UserInterfaceImpl) GetUser(email string) (UserData, error) {
 
-        var userList []UserData
-        var theUser UserData
+	var userList []UserData
+	var theUser UserData
 
-        bytes, err := ioutil.ReadFile(constant.USERFILE)
-        if err != nil {
-                return theUser, err
-        }
+	bytes, err := ioutil.ReadFile(constant.USERFILE)
+	if err != nil {
+		return theUser, err
+	}
 
-        json.Unmarshal(bytes, &userList)
-        for _, user := range userList {
-                if strings.EqualFold(email, user.Email) {
-                        theUser = user
-                        break
-                }
-        }
+	json.Unmarshal(bytes, &userList)
+	for _, user := range userList {
+		if strings.EqualFold(email, user.Email) {
+			theUser = user
+			break
+		}
+	}
 
-        return theUser, nil
+	return theUser, nil
 }
 
 func (impl UserInterfaceImpl) GetUserList() ([]UserData, error) {
 
-        var userList []UserData
+	var userList []UserData
 
-        bytes, err := ioutil.ReadFile(constant.USERFILE)
-        if err != nil {
-                return nil, err
-        }
-        json.Unmarshal(bytes, &userList)
+	bytes, err := ioutil.ReadFile(constant.USERFILE)
+	if err != nil {
+		return nil, err
+	}
+	json.Unmarshal(bytes, &userList)
 
-        return userList, nil
+	return userList, nil
 }
 
 func (impl UserInterfaceImpl) UpdateUserList(updatedList []UserData) error {

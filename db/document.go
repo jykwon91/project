@@ -3,7 +3,6 @@ package db
 var Document DocumentInterface = DocumentInterfaceImpl{}
 
 type DocumentInterface interface {
-
 }
 
 type DocumentInterfaceImpl struct {

@@ -1,21 +1,21 @@
 package rest
 
 import (
-	"fmt"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"strings"
 
 	"github.com/dgrijalva/jwt-go"
 
-	"github.com/jykwon91/project/util/logger"
 	"github.com/jykwon91/project/util/constant"
+	"github.com/jykwon91/project/util/logger"
 )
 
 type JwtToken struct {
-        Token    string `json:"token"`
-        UserType string `json:"userType"`
+	Token    string `json:"token"`
+	UserType string `json:"userType"`
 }
 
 func GetTokenPass() ([]byte, error) {
@@ -29,35 +29,35 @@ func GetTokenPass() ([]byte, error) {
 }
 
 func ReadReqBody(requestObj *http.Request, resultObj interface{}) error {
-        defer requestObj.Body.Close()
+	defer requestObj.Body.Close()
 
-        bytes, err := ioutil.ReadAll(requestObj.Body)
-        if err != nil {
-                return err
-        }
+	bytes, err := ioutil.ReadAll(requestObj.Body)
+	if err != nil {
+		return err
+	}
 
-        err = json.Unmarshal(bytes, resultObj)
-        if err != nil {
-                return err
-        }
+	err = json.Unmarshal(bytes, resultObj)
+	if err != nil {
+		return err
+	}
 
-        return nil
+	return nil
 }
 
 func ReadRespBody(responseObj *http.Response, resultObj interface{}) error {
-        defer responseObj.Body.Close()
+	defer responseObj.Body.Close()
 
-        bytes, err := ioutil.ReadAll(responseObj.Body)
-        if err != nil {
-                return err
-        }
+	bytes, err := ioutil.ReadAll(responseObj.Body)
+	if err != nil {
+		return err
+	}
 
-        err = json.Unmarshal(bytes, resultObj)
-        if err != nil {
-                return err
-        }
+	err = json.Unmarshal(bytes, resultObj)
+	if err != nil {
+		return err
+	}
 
-        return nil
+	return nil
 }
 
 func AuthenticateTokenAndReturnClaims(tokenString string) (jwt.MapClaims, error) {
@@ -68,21 +68,21 @@ func AuthenticateTokenAndReturnClaims(tokenString string) (jwt.MapClaims, error)
 		return nil, fmt.Errorf("Failed to authenticate user")
 	}
 
-        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-                if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-                        return nil, fmt.Errorf("Failed to authenticate user")
-                }
-                return tokenPass, nil
-        })
-        if err != nil {
-                return nil, err
-        }
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Failed to authenticate user")
+		}
+		return tokenPass, nil
+	})
+	if err != nil {
+		return nil, err
+	}
 
-        if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-                return claims, nil
-        }
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return claims, nil
+	}
 
-        return nil, fmt.Errorf("Failed to authenticate user")
+	return nil, fmt.Errorf("Failed to authenticate user")
 }
 
 func GetEmailFromClaims(claims jwt.MapClaims) (string, error) {

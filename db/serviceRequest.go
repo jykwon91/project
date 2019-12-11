@@ -3,7 +3,6 @@ package db
 var ServiceRequest ServiceRequestInterface = ServiceRequestInterfaceImpl{}
 
 type ServiceRequestInterface interface {
-
 }
 
 type ServiceRequestInterfaceImpl struct {

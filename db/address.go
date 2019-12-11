@@ -3,7 +3,6 @@ package db
 var Address AddressInterface = AddressInterfaceImpl{}
 
 type AddressInterface interface {
-
 }
 
 type AddressData struct {

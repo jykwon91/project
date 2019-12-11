@@ -1,11 +1,11 @@
 package db
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
-	"io/ioutil"
-	"encoding/json"
 
 	"github.com/jykwon91/project/util/constant"
 )
@@ -40,62 +40,62 @@ type PaymentData struct {
 
 func (impl PaymentInterfaceImpl) UpdatePayment(paymentID string, landLordID string, tenantID string, amount int64, btTransactionID string, paymentMethod string) (PaymentData, error) {
 
-        userList, err := User.GetUserList()
-        if err != nil {
-                return PaymentData{}, err
-        }
+	userList, err := User.GetUserList()
+	if err != nil {
+		return PaymentData{}, err
+	}
 
-        var pendingPayment PaymentData
-        for i, user := range userList {
-                if strings.EqualFold(user.UserID, landLordID) {
-                        for j, payment := range user.PaymentList {
-                                if strings.EqualFold(paymentID, payment.PaymentID) {
-                                        if amount == payment.Amount {
-                                                now := time.Now()
-                                                secs := now.Unix()
-                                                date := strconv.FormatInt(secs, 10)
-                                                userList[i].PaymentList[j].Status = constant.PROCESSING
-                                                userList[i].PaymentList[j].PaidDate = date
-                                        } else {
-                                                userList[i].PaymentList[j].Amount = userList[i].PaymentList[j].Amount - amount
-                                        }
-                                        userList[i].PaymentList[j].BTTransactionID = btTransactionID
-                                        userList[i].PaymentList[j].PaymentMethod = paymentMethod
-                                        pendingPayment = userList[i].PaymentList[j]
-                                }
-                        }
-                }
-        }
+	var pendingPayment PaymentData
+	for i, user := range userList {
+		if strings.EqualFold(user.UserID, landLordID) {
+			for j, payment := range user.PaymentList {
+				if strings.EqualFold(paymentID, payment.PaymentID) {
+					if amount == payment.Amount {
+						now := time.Now()
+						secs := now.Unix()
+						date := strconv.FormatInt(secs, 10)
+						userList[i].PaymentList[j].Status = constant.PROCESSING
+						userList[i].PaymentList[j].PaidDate = date
+					} else {
+						userList[i].PaymentList[j].Amount = userList[i].PaymentList[j].Amount - amount
+					}
+					userList[i].PaymentList[j].BTTransactionID = btTransactionID
+					userList[i].PaymentList[j].PaymentMethod = paymentMethod
+					pendingPayment = userList[i].PaymentList[j]
+				}
+			}
+		}
+	}
 
-        err = User.UpdateUserList(userList)
-        if err != nil {
-                return PaymentData{}, err
-        }
+	err = User.UpdateUserList(userList)
+	if err != nil {
+		return PaymentData{}, err
+	}
 
-        return pendingPayment, nil
+	return pendingPayment, nil
 }
 
 func (impl PaymentInterfaceImpl) AddToPendingPaymentList(pendingPayment PaymentData) error {
 
-        var pendingPaymentList []PaymentData
+	var pendingPaymentList []PaymentData
 
-        bytes, err := ioutil.ReadFile(constant.PENDINGPAYMENTSFILE)
-        if err != nil {
-                return err
-        }
-        json.Unmarshal(bytes, &pendingPaymentList)
+	bytes, err := ioutil.ReadFile(constant.PENDINGPAYMENTSFILE)
+	if err != nil {
+		return err
+	}
+	json.Unmarshal(bytes, &pendingPaymentList)
 
-        pendingPaymentList = append(pendingPaymentList, pendingPayment)
+	pendingPaymentList = append(pendingPaymentList, pendingPayment)
 
-        bytes, err = json.Marshal(pendingPaymentList)
-        if err != nil {
-                return err
-        }
+	bytes, err = json.Marshal(pendingPaymentList)
+	if err != nil {
+		return err
+	}
 
-        err = ioutil.WriteFile(constant.PENDINGPAYMENTSFILE, bytes, 0644)
-        if err != nil {
-                return err
-        }
+	err = ioutil.WriteFile(constant.PENDINGPAYMENTSFILE, bytes, 0644)
+	if err != nil {
+		return err
+	}
 
-        return nil
+	return nil
 }
