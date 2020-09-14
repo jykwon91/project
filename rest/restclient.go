@@ -30,7 +30,7 @@ func InitRestClient() {
 	router.Handle("/landlord/notification", appHandler(SendNotification))
 	router.Handle("/landlord/service/request/update", appHandler(UpdateServiceRequest))
 	router.Handle("/tenant/service/request", appHandler(SendServiceRequest))
-	router.Handle("/users/upload", appHandler(uploadDocument))
+	//router.Handle("/users/upload", appHandler(uploadDocument))
 
 	//GET
 	router.Handle("/stateList", appHandler(GetStateList))
