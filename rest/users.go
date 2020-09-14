@@ -344,6 +344,7 @@ func GetAllUsers(resp http.ResponseWriter, req *http.Request) *appError.AppError
 	return nil
 }
 
+/*
 func UploadDocument(resp http.ResponseWriter, req *http.Request) *appError.AppError {
 
 	claims, err := AuthenticateTokenAndReturnClaims(req.Header.Get("Authorization"))
@@ -359,3 +360,4 @@ func UploadDocument(resp http.ResponseWriter, req *http.Request) *appError.AppEr
 	logger.Logger(nil, resp, req)
 	return nil
 }
+*/
