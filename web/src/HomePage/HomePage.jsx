@@ -308,129 +308,129 @@ class HomePage extends React.Component {
         const { notifications, serviceRequestList, paymentList, paymentOverview } = this.props;
 				const { currentUser, submitted, serviceReq, selectedPayment, paymentAmount } = this.state;
         return (
-					<div>
-					<h1>Hello, {currentUser.FirstName}{' '}{currentUser.LastName}{'.'}</h1>
-					<Row>
-						<Col xs="6" sm="4">
-							<p>Notications:</p>
-							{currentUser.error && <span className="text-danger">ERROR: {currentUser.error}</span>}
-							{currentUser && currentUser.NotificationList && 
-								<ListGroup style={{overflow: "scroll", height: "550px", width: "100%"}}>
-									{currentUser.NotificationList.map((notification, index) =>
-										<ListGroupItem key={index}>
-											<ListGroupItemHeading>{this.convertEpochTime(notification.CreatedOn)}</ListGroupItemHeading>
-											<ListGroupItemHeading>From: {notification.From}</ListGroupItemHeading>
-											<ListGroupItemText>{notification.Message}</ListGroupItemText>
-										</ListGroupItem>
-									)}
-								</ListGroup>
-							}
-						</Col>
-						<Col xs="6" sm="4">
-							<Row >
-							<p>Service Requests:</p>
-							{serviceRequestList.error && <span className="text-danger">ERROR: {serviceRequestList.error}</span>}
-							{serviceRequestList.items &&
-								<ListGroup style={{overflow: "scroll", height: "400px", width: "100%"}}>
-									{serviceRequestList.items.map((serviceReq, index) =>
-										<ListGroupItem key={index} color={(serviceReq.Status === "processing") ? 'warning' : (serviceReq.Status === "completed") ? 'success' : 'info'}>
-											<ListGroupItemHeading>{this.convertEpochTime(serviceReq.RequestTime)}</ListGroupItemHeading>
-											<ListGroupItemText style={{overflowWrap: "break-word"}}>{serviceReq.Message}</ListGroupItemText>
-										</ListGroupItem>
-									)}
-								</ListGroup>
-							}
+			<div>
+				<h1>Hello, {currentUser.FirstName}{' '}{currentUser.LastName}{'.'}</h1>
+				<Row>
+					<Col xs="6" sm="4">
+						<p>Notications:</p>
+						{currentUser.error && <span className="text-danger">ERROR: {currentUser.error}</span>}
+						{currentUser && currentUser.NotificationList && 
+							<ListGroup style={{overflow: "scroll", height: "550px", width: "100%"}}>
+								{currentUser.NotificationList.map((notification, index) =>
+									<ListGroupItem key={index}>
+										<ListGroupItemHeading>{this.convertEpochTime(notification.CreatedOn)}</ListGroupItemHeading>
+										<ListGroupItemHeading>From: {notification.From}</ListGroupItemHeading>
+										<ListGroupItemText>{notification.Message}</ListGroupItemText>
+									</ListGroupItem>
+								)}
+							</ListGroup>
+						}
+					</Col>
+					<Col xs="6" sm="4">
+						<Row >
+						<p>Service Requests:</p>
+						{serviceRequestList.error && <span className="text-danger">ERROR: {serviceRequestList.error}</span>}
+						{serviceRequestList.items &&
+							<ListGroup style={{overflow: "scroll", height: "400px", width: "100%"}}>
+								{serviceRequestList.items.map((serviceReq, index) =>
+									<ListGroupItem key={index} color={(serviceReq.Status === "processing") ? 'warning' : (serviceReq.Status === "completed") ? 'success' : 'info'}>
+										<ListGroupItemHeading>{this.convertEpochTime(serviceReq.RequestTime)}</ListGroupItemHeading>
+										<ListGroupItemText style={{overflowWrap: "break-word"}}>{serviceReq.Message}</ListGroupItemText>
+									</ListGroupItem>
+								)}
+							</ListGroup>
+						}
 
-							</Row>
-							<Row>
-								<form onSubmit={this.handleSubmit.bind(this)}>
-									<FormGroup controlId="serviceReqForm">
-										<ControlLabel>Service Request</ControlLabel>
-										<FormControl type="text" name="Message" value={serviceReq.Message} componentClass="textarea" onChange={this.handleChange.bind(this, "Message")} placeholder="Enter a brief description of the issue..." style={{height: "100px", resize: "none"}}/>
-									</FormGroup>
-									<div style={{float: "right"}}>
-										<Button type="submit">Submit</Button>
-									</div>
-								</form>
-							</Row>
-						</Col>
-						<Col xs="6" sm="4">
-							<Row>
-								<div>
-									{paymentOverview.items && 
-										<div>
-											<h6>Current Pay Period: {paymentOverview.items.CurrentPayPeriod}</h6>
-											<h6>Current Amount Due: ${this.convertDollarAmount(paymentOverview.items.CurrentAmountDue)}</h6>
-											<h6>Late Amount: ${this.convertDollarAmount(paymentOverview.items.TotalLateAmount)}</h6>
-											<h6>Late Fees: ${this.convertDollarAmount(paymentOverview.items.TotalLateFees)}</h6>
-											<h6>Total Due: ${this.convertDollarAmount(paymentOverview.items.TotalDue)}</h6>
-										</div>
-									}
+						</Row>
+						<Row>
+							<form onSubmit={this.handleSubmit.bind(this)}>
+								<FormGroup controlId="serviceReqForm">
+									<ControlLabel>Service Request</ControlLabel>
+									<FormControl type="text" name="Message" value={serviceReq.Message} componentClass="textarea" onChange={this.handleChange.bind(this, "Message")} placeholder="Enter a brief description of the issue..." style={{height: "100px", resize: "none"}}/>
+								</FormGroup>
+								<div style={{float: "right"}}>
+									<Button type="submit">Submit</Button>
 								</div>
-							</Row>
-							<Row>
-									{paymentList.loading && <em>Loading Payment List...</em>}
-									{paymentList.error && <span className="text-danger">ERROR: {paymentList.error}</span>}
-									{paymentList.items &&
-										<ListGroup style={{overflow: "scroll", height: "550px", width: "100%"}}>
-											{paymentList.items.map((payment, index) =>
-												<ListGroupItem key={index} color={(payment.Status === "processing") ? 'warning' : (payment.Status === "paid") ? 'success' : (payment.Status === "late") ? 'danger' : (payment.Status === "error") ? 'danger' : 'info'}>
-													<div>
-														<div style={{float: "left"}}></div>
-														<div style={{float: "right"}}><Button color="info" style={(payment.Status !== "open") ? {display:'none'} : {}} onClick={() => this.openModal(payment)}>Pay</Button></div>
-														<div style={{float: "right"}}><Button color="info" style={(payment.Status !== "paid") ? {display:'none'} : {}} onClick={() => this.openReceiptModal(payment)}>View Receipt</Button></div>
-													</div>
-													<ListGroupItemHeading>{this.convertEpochTime(payment.DueDate)}</ListGroupItemHeading>
-													<ListGroupItemHeading>Amount: ${this.convertDollarAmount(payment.Amount)}</ListGroupItemHeading>
-													<ListGroupItemHeading>Category: {payment.Category}</ListGroupItemHeading>
-													<ListGroupItemHeading>Status: {payment.Status}</ListGroupItemHeading>
-												</ListGroupItem>
-											)}
-										</ListGroup>
-									}
-							</Row>
-						</Col>
-					</Row>
-						<p>
-								<Link to="/login">Logout</Link>
-								<Button color="primary" onClick={this.createTestPayment}>Create test payment</Button>
-						</p>
-								<Modal show={this.state.modal} style={{opacity: "1"}} onHide={this.toggle}>
-									<Modal.Header closeButton><Modal.Title>Payment</Modal.Title></Modal.Header>
-										<Modal.Body>
-											<p>Category: {selectedPayment.Category}</p>
-											<p>Description: {selectedPayment.Description}</p>
-											<p>Date Posted: {this.convertEpochTime(selectedPayment.DueDate)}</p>
-											<p>Amount Due: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
-											<DropIn
-												options={{ authorization: 'production_mf5q8yfp_kc2j6g7k7gnvz8nj' }}
-												onInstance={instance => (this.instance = instance)}
-											/>
-										</Modal.Body>
-									<Modal.Footer>
-										<Button color="primary" onClick={this.buy.bind(this)}>Pay Now</Button>
-										<Button color="secondary" onClick={this.toggle}>Cancel</Button>
-									</Modal.Footer>
-								</Modal>
-								<Modal show={this.state.receiptModal} style={{opacity: "1"}} onHide={this.toggleReceipt}>
-									<Modal.Header closeButton><Modal.Title>Receipt</Modal.Title></Modal.Header>
-										<Modal.Body>
-											<p>Description: {selectedPayment.Description}</p>
-											<p>Category: {selectedPayment.Category}</p>
-											<p>Payment ID: {selectedPayment.PaymentID}</p>
-											<p>Date Posted: {this.convertEpochTime(selectedPayment.DueDate)}</p>
-											<p>Amount Due: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
-											<p>Date Paid: {this.convertEpochTime(selectedPayment.PaidDate)}</p>
-											<p>Amount Paid: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
-											<p>Payment Method: {selectedPayment.PaymentMethod}</p>
-										</Modal.Body>
-									<Modal.Footer>
-										<Button color="primary" onClick={this.buy.bind(this)}>Pay Now</Button>
-										<Button color="secondary" onClick={this.toggleReceipt}>Cancel</Button>
-									</Modal.Footer>
-								</Modal>
-					</div>
-        );
+							</form>
+						</Row>
+					</Col>
+					<Col xs="6" sm="4">
+						<Row>
+							<div>
+								{paymentOverview.items && 
+									<div>
+										<h6>Current Pay Period: {paymentOverview.items.CurrentPayPeriod}</h6>
+										<h6>Current Amount Due: ${this.convertDollarAmount(paymentOverview.items.CurrentAmountDue)}</h6>
+										<h6>Late Amount: ${this.convertDollarAmount(paymentOverview.items.TotalLateAmount)}</h6>
+										<h6>Late Fees: ${this.convertDollarAmount(paymentOverview.items.TotalLateFees)}</h6>
+										<h6>Total Due: ${this.convertDollarAmount(paymentOverview.items.TotalDue)}</h6>
+									</div>
+								}
+							</div>
+						</Row>
+						<Row>
+							{paymentList.loading && <em>Loading Payment List...</em>}
+							{paymentList.error && <span className="text-danger">ERROR: {paymentList.error}</span>}
+							{paymentList.items &&
+								<ListGroup style={{overflow: "scroll", height: "550px", width: "100%"}}>
+									{paymentList.items.map((payment, index) =>
+										<ListGroupItem key={index} color={(payment.Status === "processing") ? 'warning' : (payment.Status === "paid") ? 'success' : (payment.Status === "late") ? 'danger' : (payment.Status === "error") ? 'danger' : 'info'}>
+											<div>
+												<div style={{float: "left"}}></div>
+												<div style={{float: "right"}}><Button color="info" style={(payment.Status !== "open") ? {display:'none'} : {}} onClick={() => this.openModal(payment)}>Pay</Button></div>
+												<div style={{float: "right"}}><Button color="info" style={(payment.Status !== "paid") ? {display:'none'} : {}} onClick={() => this.openReceiptModal(payment)}>View Receipt</Button></div>
+											</div>
+											<ListGroupItemHeading>{this.convertEpochTime(payment.DueDate)}</ListGroupItemHeading>
+											<ListGroupItemHeading>Amount: ${this.convertDollarAmount(payment.Amount)}</ListGroupItemHeading>
+											<ListGroupItemHeading>Category: {payment.Category}</ListGroupItemHeading>
+											<ListGroupItemHeading>Status: {payment.Status}</ListGroupItemHeading>
+										</ListGroupItem>
+									)}
+								</ListGroup>
+							}
+						</Row>
+					</Col>
+				</Row>
+				<p>
+					<Link to="/login">Logout</Link>
+					<Button color="primary" onClick={this.createTestPayment}>Create test payment</Button>
+				</p>
+				<Modal show={this.state.modal} style={{opacity: "1"}} onHide={this.toggle}>
+					<Modal.Header closeButton><Modal.Title>Payment</Modal.Title></Modal.Header>
+						<Modal.Body>
+							<p>Category: {selectedPayment.Category}</p>
+							<p>Description: {selectedPayment.Description}</p>
+							<p>Date Posted: {this.convertEpochTime(selectedPayment.DueDate)}</p>
+							<p>Amount Due: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
+							<DropIn
+								options={{ authorization: 'production_mf5q8yfp_kc2j6g7k7gnvz8nj' }}
+								onInstance={instance => (this.instance = instance)}
+							/>
+						</Modal.Body>
+					<Modal.Footer>
+						<Button color="primary" onClick={this.buy.bind(this)}>Pay Now</Button>
+						<Button color="secondary" onClick={this.toggle}>Cancel</Button>
+					</Modal.Footer>
+				</Modal>
+				<Modal show={this.state.receiptModal} style={{opacity: "1"}} onHide={this.toggleReceipt}>
+					<Modal.Header closeButton><Modal.Title>Receipt</Modal.Title></Modal.Header>
+						<Modal.Body>
+							<p>Description: {selectedPayment.Description}</p>
+							<p>Category: {selectedPayment.Category}</p>
+							<p>Payment ID: {selectedPayment.PaymentID}</p>
+							<p>Date Posted: {this.convertEpochTime(selectedPayment.DueDate)}</p>
+							<p>Amount Due: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
+							<p>Date Paid: {this.convertEpochTime(selectedPayment.PaidDate)}</p>
+							<p>Amount Paid: ${this.convertDollarAmount(selectedPayment.Amount)}</p>
+							<p>Payment Method: {selectedPayment.PaymentMethod}</p>
+						</Modal.Body>
+					<Modal.Footer>
+						<Button color="primary" onClick={this.buy.bind(this)}>Pay Now</Button>
+						<Button color="secondary" onClick={this.toggleReceipt}>Cancel</Button>
+					</Modal.Footer>
+				</Modal>
+			</div>
+		);
     }
 }
 

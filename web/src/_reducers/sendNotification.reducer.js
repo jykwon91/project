@@ -1,4 +1,4 @@
-import { userConstants } from '../_constants';
+import { userConstants } from "../_constants";
 
 export function sendNotification(state = {}, action) {
   switch (action.type) {
@@ -9,6 +9,6 @@ export function sendNotification(state = {}, action) {
     case userConstants.SEND_NOTIFICATION_FAILURE:
       return {};
     default:
-      return state
+      return state;
   }
 }

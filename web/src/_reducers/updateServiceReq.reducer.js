@@ -1,4 +1,4 @@
-import { userConstants } from '../_constants';
+import { userConstants } from "../_constants";
 
 export function updateServiceReq(state = {}, action) {
   switch (action.type) {
@@ -9,6 +9,6 @@ export function updateServiceReq(state = {}, action) {
     case userConstants.UPDATE_SERVICEREQ_FAILURE:
       return {};
     default:
-      return state
+      return state;
   }
 }

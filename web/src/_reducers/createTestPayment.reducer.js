@@ -1,4 +1,4 @@
-import { userConstants } from '../_constants';
+import { userConstants } from "../_constants";
 
 export function createTestPayment(state = {}, action) {
   switch (action.type) {
@@ -9,6 +9,6 @@ export function createTestPayment(state = {}, action) {
     case userConstants.CREATE_TEST_PAYMENT_FAILURE:
       return {};
     default:
-      return state
+      return state;
   }
 }

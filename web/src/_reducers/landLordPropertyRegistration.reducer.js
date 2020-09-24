@@ -1,4 +1,4 @@
-import { userConstants } from '../_constants';
+import { userConstants } from "../_constants";
 
 export function landLordPropertyRegistration(state = {}, action) {
   switch (action.type) {
@@ -9,6 +9,6 @@ export function landLordPropertyRegistration(state = {}, action) {
     case userConstants.REGISTER_LANDLORD_PROPERTY_FAILURE:
       return {};
     default:
-      return state
+      return state;
   }
 }

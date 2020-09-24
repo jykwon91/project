@@ -1,4 +1,4 @@
-import { userConstants } from '../_constants';
+import { userConstants } from "../_constants";
 
 export function updateUser(state = {}, action) {
   switch (action.type) {
@@ -9,6 +9,6 @@ export function updateUser(state = {}, action) {
     case userConstants.UPDATE_USER_FAILURE:
       return {};
     default:
-      return state
+      return state;
   }
 }

@@ -1,1 +1,1 @@
-export * from './LandLordPage';
+export * from "./LandLordPage";
